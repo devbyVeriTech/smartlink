@@ -112,9 +112,23 @@
 	--color-sidebar-ring: var(--sidebar-ring);
 }
 
+@theme {
+	--font-sans: 'Outfit', 'Kumbh Sans', 'Inter', sans-serif;
+	--font-heading: 'Space Grotesk', sans-serif;
+}
+
 @layer base {
 	* {
 		@apply border-border outline-ring/50;
+		font-family: var(--font-sans);
+	}
+	h1,
+	h2,
+	h3,
+	h4 {
+		font-family: var(--font-heading);
+		font-weight: 600;
+		letter-spacing: -0.02em;
 	}
 	body {
 		@apply bg-backgrund text-foreground dark:bg-[#09090b];
