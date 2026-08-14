@@ -54,44 +54,70 @@ export const GET: RequestHandler = async ({ params, request, getClientAddress, u
 
 		// Determine which platform was clicked based on the URL path
 		const pathname = url.pathname;
+		const requestedUrl = url.searchParams.get('url');
 		let streamingPlatform = 'unknown';
 		let redirectUrl = link.url; // Default to primary URL
 
 		// Check which platform was clicked based on the path
 		if (pathname.includes('/spotify')) {
 			streamingPlatform = 'spotify';
-			redirectUrl = link.spotify || link.url;
+			redirectUrl = requestedUrl || link.spotify || link.url;
 		} else if (pathname.includes('/apple-music')) {
 			streamingPlatform = 'apple_music';
-			redirectUrl = link.appleMusic || link.url;
+			redirectUrl = requestedUrl || link.appleMusic || link.url;
 		} else if (pathname.includes('/youtube')) {
 			streamingPlatform = 'youtube';
-			redirectUrl = link.youtube || link.url;
+			redirectUrl = requestedUrl || link.youtube || link.url;
 		} else if (pathname.includes('/soundcloud')) {
 			streamingPlatform = 'soundcloud';
-			redirectUrl = link.soundcloud || link.url;
+			redirectUrl = requestedUrl || link.soundcloud || link.url;
 		} else if (pathname.includes('/deezer')) {
 			streamingPlatform = 'deezer';
 			// Check additional platforms for Deezer
 			if (link.additionalPlatforms) {
 				const deezerPlatform = (link.additionalPlatforms as any[])?.find(p => p.name.toLowerCase() === 'deezer');
-				redirectUrl = deezerPlatform?.url || link.url;
+				redirectUrl = requestedUrl || deezerPlatform?.url || link.url;
 			}
 		} else if (pathname.includes('/tidal')) {
 			streamingPlatform = 'tidal';
 			if (link.additionalPlatforms) {
 				const tidalPlatform = (link.additionalPlatforms as any[])?.find(p => p.name.toLowerCase() === 'tidal');
-				redirectUrl = tidalPlatform?.url || link.url;
+				redirectUrl = requestedUrl || tidalPlatform?.url || link.url;
 			}
 		} else if (pathname.includes('/audiomack')) {
 			streamingPlatform = 'audiomack';
 			if (link.additionalPlatforms) {
 				const audiomackPlatform = (link.additionalPlatforms as any[])?.find(p => p.name.toLowerCase() === 'audiomack');
-				redirectUrl = audiomackPlatform?.url || link.url;
+				redirectUrl = requestedUrl || audiomackPlatform?.url || link.url;
+			}
+		} else if (pathname.includes('/bandcamp')) {
+			streamingPlatform = 'bandcamp';
+			if (link.additionalPlatforms) {
+				const bandcampPlatform = (link.additionalPlatforms as any[])?.find(p => p.name.toLowerCase() === 'bandcamp');
+				redirectUrl = requestedUrl || bandcampPlatform?.url || link.url;
+			}
+		} else if (pathname.includes('/amazon-music')) {
+			streamingPlatform = 'amazon_music';
+			if (link.additionalPlatforms) {
+				const amazonMusicPlatform = (link.additionalPlatforms as any[])?.find(p => p.name.toLowerCase() === 'amazon-music' || p.name.toLowerCase() === 'amazon music');
+				redirectUrl = requestedUrl || amazonMusicPlatform?.url || link.url;
+			}
+		} else if (pathname.includes('/beatport')) {
+			streamingPlatform = 'beatport';
+			if (link.additionalPlatforms) {
+				const beatportPlatform = (link.additionalPlatforms as any[])?.find(p => p.name.toLowerCase() === 'beatport');
+				redirectUrl = requestedUrl || beatportPlatform?.url || link.url;
+			}
+		} else if (pathname.includes('/musicbed')) {
+			streamingPlatform = 'musicbed';
+			if (link.additionalPlatforms) {
+				const musicbedPlatform = (link.additionalPlatforms as any[])?.find(p => p.name.toLowerCase() === 'musicbed');
+				redirectUrl = requestedUrl || musicbedPlatform?.url || link.url;
 			}
 		} else {
 			// Default platform click (main link)
 			streamingPlatform = 'primary';
+			redirectUrl = requestedUrl || link.url;
 		}
 
 		// Record the click with streaming platform data

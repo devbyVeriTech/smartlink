@@ -18,8 +18,12 @@
 		relatedAlbums = [],
 		availablePlatforms,
 		clickedPlatforms = new Set(),
-		handlePlatformClick = () => {}
+		handlePlatformClick = defaultHandlePlatformClick
 	} = $props();
+
+	function defaultHandlePlatformClick(url: string, name: string) {
+		window.open(url, '_blank', 'noopener,noreferrer');
+	}
 
 	let clickedNames = $state<string[]>([]);
 
@@ -27,7 +31,7 @@
 		if (!clickedNames.includes(name)) {
 			clickedNames = [...clickedNames, name];
 		}
-		window.open(url, '_blank', 'noopener,noreferrer');
+		handlePlatformClick(url, name);
 	}
 
 	// Simple audio preview state (no auth needed)

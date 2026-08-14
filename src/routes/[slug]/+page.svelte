@@ -22,12 +22,12 @@
 	async function handlePlatformClick(url: string, platformName: string) {
 		if (!link) return;
 
-		// Track click - would need an API endpoint for this
-		// await linkClientService.trackClick(link.id, platformName);
+		// Track click via the platform tracking endpoint, which records analytics
+		// and redirects the user to the exact platform URL they clicked.
 		clickedPlatforms = new Set([...clickedPlatforms, platformName]);
 
-		// Open platform
-		window.open(url, '_blank');
+		const platformSlug = platformName.toLowerCase().replace(/\s+/g, '-');
+		window.open(`/l/${link.slug}/${platformSlug}?url=${encodeURIComponent(url)}`, '_blank');
 	}
 
 	function shareLink() {
