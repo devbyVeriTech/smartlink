@@ -13,9 +13,6 @@
 	import { app } from '$lib/utils/app';
 	import { getPlatformSvg, getPlatformColor } from '$lib/utils/platforms';
 
-	const LightLogo = '/uploads/logos/light-logo.webp';
-	const DarkLogo = '/uploads/logos/dark-logo.webp';
-
 	let {
 		link,
 		relatedAlbums = [],
@@ -331,52 +328,6 @@
 	</div>
 
 	<div class="relative z-10 flex min-h-screen flex-col">
-		<header
-			class="top-0 border-black/5 dark:border-white/5 bg-white/20 dark:bg-black/20 backdrop-blur-3xl sticky z-40 border-b transition-colors duration-500"
-		>
-			<div class="max-w-5xl px-6 py-4 mx-auto flex items-center justify-between">
-				<button
-					aria-label="Back"
-					class="p-2 text-black/60 dark:text-white/70 hover:text-black dark:hover:text-white transition-colors"
-					onclick={() => window.history.back()}
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-6 w-6"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="2"
-					>
-						<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-					</svg>
-				</button>
-
-				<a
-					href={app.mainUrl}
-					class="flex items-center justify-center transition-transform hover:scale-105"
-					aria-label="{app.name} Home"
-				>
-					<div
-						class="h-10 w-10 shadow-sm flex items-center justify-center overflow-hidden rounded-full dark:hidden"
-					>
-						<img src={LightLogo} alt={app.name} class="h-full w-full object-cover" />
-					</div>
-					<div
-						class="h-10 w-10 shadow-sm hidden items-center justify-center overflow-hidden rounded-full dark:flex"
-					>
-						<img src={DarkLogo} alt={app.name} class="h-full w-full object-cover" />
-					</div>
-				</a>
-
-				<button
-					class="text-sm font-semibold hover:text-black dark:hover:text-white drop-shadow-sm text-[var(--teal)] transition-colors dark:text-[var(--accent)]"
-				>
-					Share
-				</button>
-			</div>
-		</header>
-
 		<main
 			class="max-w-5xl gap-12 px-6 pt-12 md:flex-row md:items-start md:gap-16 mx-auto flex w-full flex-col items-center"
 		>
@@ -457,7 +408,7 @@
 						</Badge>
 					</div>
 					<div
-						class="text-xl font-semibold text-black/60 dark:text-white/70 drop-shadow-sm dark:drop-shadow-md transition-colors duration-500"
+						class="text-xl font-semibold text-(--teal) dark:text-(--accent) drop-shadow-sm dark:drop-shadow-md transition-colors duration-500"
 					>
 						{#each artist.split(',') as artistName, index}
 							<button
@@ -701,6 +652,12 @@
 				</div>
 			{/if}
 		</main>
+
+		<footer
+			class="py-8 pb-24 text-center text-sm text-black/40 dark:text-white/40 relative z-10 transition-colors duration-500"
+		>
+			<p>© {new Date().getFullYear()} {app.name}. All rights reserved.</p>
+		</footer>
 	</div>
 </div>
 
