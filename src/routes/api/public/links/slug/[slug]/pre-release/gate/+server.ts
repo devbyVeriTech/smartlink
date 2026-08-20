@@ -5,6 +5,11 @@ import { generateRequestId, logRequest, logResponse } from '$lib/server/middlewa
 import { logger } from '$lib/server/utils/logger';
 import { json } from '@sveltejs/kit';
 import bcrypt from 'bcryptjs';
+import { getVisitorKey, recordPreReleaseAccess } from '$lib/server/utils/pre-release-access';
+import { verifyPasscode } from '$lib/server/utils/pre-release-passcode';
+import { db } from '$lib/server/db';
+import { orders } from '$lib/server/db/schema';
+import { eq, and } from 'drizzle-orm';
 
 export const POST: RequestHandler = async (event) => {
 	const requestId = generateRequestId();
@@ -25,29 +30,64 @@ export const POST: RequestHandler = async (event) => {
 		const body = await event.request.json();
 		const { email, name, passcode } = body;
 
-		// 1. Password Verification Gate
-		if (link.requiresPassword) {
+		// 0. Pay-to-listen gate — the emailed unique passcode is the ONLY gate.
+		if (link.buyEnabled) {
 			if (!passcode) {
-				return json({ error: 'Passcode is required to unlock this pre-release' }, { status: 401 });
+				return json({ error: 'Buy this track to receive your passcode by email' }, { status: 401 });
 			}
 
-			const isMatch = await bcrypt.compare(passcode, link.passwordHash || '');
-			if (!isMatch) {
+			const paidOrders = await db
+				.select({ id: orders.id })
+				.from(orders)
+				.where(and(eq(orders.linkId, link.id), eq(orders.status, 'paid')));
+
+			const matched = paidOrders.find((order) => verifyPasscode(order.id, passcode));
+			if (!matched) {
 				return json({ error: 'Incorrect passcode' }, { status: 401 });
 			}
-		}
 
-		// 2. Email Capture Gate
-		if (email) {
-			// Basic validation
-			if (!email.includes('@')) {
-				return json({ error: 'Please enter a valid email address' }, { status: 400 });
+			// Paying fans are never blocked by the unique-listener cap; log purely for stats.
+			const paidVisitorKey = getVisitorKey(event);
+			await recordPreReleaseAccess({ ...link, maxAccessCount: null }, paidVisitorKey);
+		} else {
+			// 1. Password Verification Gate
+			if (link.requiresPassword) {
+				if (!passcode) {
+					return json(
+						{ error: 'Passcode is required to unlock this pre-release' },
+						{ status: 401 }
+					);
+				}
+
+				const isMatch = await bcrypt.compare(passcode, link.passwordHash || '');
+				if (!isMatch) {
+					return json({ error: 'Incorrect passcode' }, { status: 401 });
+				}
 			}
-			await linkService.capturePreReleaseEmail(link.id, email, name);
-			logger.info(`[PreReleaseGate] Email captured for link ${link.id}: ${email}`);
+
+			// 2. Email Capture Gate
+			if (email) {
+				// Basic validation
+				if (!email.includes('@')) {
+					return json({ error: 'Please enter a valid email address' }, { status: 400 });
+				}
+				await linkService.capturePreReleaseEmail(link.id, email, name);
+				logger.info(`[PreReleaseGate] Email captured for link ${link.id}: ${email}`);
+			}
+
+			// 3. Access Limit Gate (cap unique listeners)
+			const visitorKey = getVisitorKey(event);
+			const decision = await recordPreReleaseAccess(link, visitorKey);
+			if (!decision.allowed) {
+				logResponse(event, 403);
+				return json(
+					{ error: 'This pre-release has reached its listener limit and is no longer open' },
+					{ status: 403 }
+				);
+			}
 		}
 
-		// 3. Unlock Session Cookie
+		// 4. Unlock Session Cookie
 		event.cookies.set(`unlocked_pre_release_${link.id}`, 'true', {
 			path: '/',
 			httpOnly: true,

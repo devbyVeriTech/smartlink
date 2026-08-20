@@ -1,4 +1,4 @@
-import { error } from '@sveltejs/kit';
+import { error, redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { linkService } from '$lib/services/links';
 
@@ -14,6 +14,11 @@ export const load: PageServerLoad = async ({ params, url }) => {
 
 	if (!link || !link.isPublic) {
 		throw error(404, 'Link not found');
+	}
+
+	// 2. Pre-release expiry: once the expiry date passes, redirect fans to the primary URL
+	if (link.isPreRelease && link.expiresAt && new Date() > new Date(link.expiresAt)) {
+		throw redirect(302, link.url);
 	}
 
 	// 2. Get related links by the same user (excluding this one)

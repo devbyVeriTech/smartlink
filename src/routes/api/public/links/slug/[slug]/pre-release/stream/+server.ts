@@ -15,19 +15,16 @@ export const GET: RequestHandler = async (event) => {
 
 		// Check gating requirements & cookies
 		const isUnlocked = event.cookies.get(`unlocked_pre_release_${link.id}`) === 'true';
-		
-		// If passcode or email capture is required, check if user has unlocked it
-		const needsGate = link.requiresPassword || link.isPreRelease;
-		
+
+		// If passcode, email capture, an access limit, or a pay gate is set, require an unlock cookie
+		const needsGate =
+			link.requiresPassword ||
+			link.requiresEmailCapture ||
+			Boolean(link.maxAccessCount) ||
+			Boolean(link.buyEnabled);
+
 		if (needsGate && !isUnlocked) {
-			// Check if they are the owner of the link (allow preview for creators)
-			// event.locals.user is set by authentication middleware
-			const localsUser = (event.locals as any).user;
-			const isOwner = localsUser && localsUser.id === link.userId;
-			
-			if (!isOwner) {
-				return new Response('Access denied: Gated pre-release track', { status: 403 });
-			}
+			return new Response('Access denied: Gated pre-release track', { status: 403 });
 		}
 
 		// Prepare range headers to forward to Cloudinary

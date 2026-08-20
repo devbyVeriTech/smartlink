@@ -91,6 +91,8 @@ export interface Link {
 	platforms?: Array<{ id: string; name: string; url: string }>;
 	additionalPlatforms?: Array<{ name: string; url: string }>;
 	// Pre-release fields
+	upc?: string | null;
+	isrc?: string | null;
 	isPreRelease?: boolean;
 	requiresPassword?: boolean;
 	requiresEmailCapture?: boolean;
@@ -101,4 +103,10 @@ export interface Link {
 	audioFileCloudinaryId?: string | null;
 	maxAccessCount?: number | null;
 	accessCount?: number;
+	// Pre-order / Buy fields
+	buyPrice?: number | null;
+	buyCurrency?: string;
+	buyEnabled?: boolean;
+	sortOrder?: number;
+	isArchived?: boolean;
 }

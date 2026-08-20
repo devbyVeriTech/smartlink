@@ -1,10 +1,15 @@
 <script lang="ts">
 	import { HugeiconsIcon } from '@hugeicons/svelte';
+	import { onMount } from 'svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import {
 		ExternalLink,
 		PlayIcon,
-		MusicNote01Icon
+		MusicNote01Icon,
+		Download01Icon,
+		ShoppingBag01Icon,
+		Clock02Icon,
+		ArrowRight01Icon
 	} from '@hugeicons/core-free-icons';
 
 	import { PauseIcon } from '@hugeicons/core-free-icons';
@@ -12,6 +17,7 @@
 	import { getMainArtist } from '$lib/utils/string';
 	import { app } from '$lib/utils/app';
 	import { getPlatformSvg, getPlatformColor } from '$lib/utils/platforms';
+	import PreReleaseUnlockDialog from '$lib/components/PreReleaseUnlockDialog.svelte';
 
 	let {
 		link,
@@ -54,6 +60,28 @@
 	let artist = $derived(link.artist);
 	let albumTitle = $derived(link.title);
 	let coverUrl = $derived(link.artwork);
+
+	// Pre-release surfaces
+	let linkNeedsGate = $derived(
+		Boolean(link.isPreRelease) &&
+			(link.requiresPassword ||
+				link.requiresEmailCapture ||
+				Boolean(link.maxAccessCount) ||
+				Boolean(link.buyEnabled))
+	);
+	let canDownload = $derived(
+		link.isPreRelease && (link.accessType === 'downloadable' || link.accessType === 'both')
+	);
+	let buyUrl = $derived(
+		link.buyEnabled && link.buyPrice ? `${app.mainUrl}/checkout/link/${link.id}` : null
+	);
+	let buyDisplay = $derived(
+		link.buyEnabled && link.buyPrice
+			? `₦${(link.buyPrice / 100).toLocaleString('en-NG', { maximumFractionDigits: 0 })}`
+			: null
+	);
+	let downloadLoading = $state(false);
+	let countdown = $state<{ d: number; h: number; m: number; s: number } | null>(null);
 
 	let mainArtist = $derived(getMainArtist(artist));
 	let filteredRelatedAlbums = $derived(
@@ -172,8 +200,10 @@
 
 	async function unlockPreRelease() {
 		unlockError = null;
-		if (link.requiresPassword && !unlockPasscode.trim()) {
-			unlockError = 'Passcode is required to unlock this track.';
+		if ((link.requiresPassword || link.buyEnabled) && !unlockPasscode.trim()) {
+			unlockError = link.buyEnabled
+				? 'Enter the passcode you received by email after buying.'
+				: 'Passcode is required to unlock this track.';
 			return;
 		}
 
@@ -229,8 +259,8 @@
 			return;
 		}
 
-		const needsPreReleaseUnlock = link.isPreRelease && !!link.audioFileUrl;
-		if (needsPreReleaseUnlock && !preReleaseUnlocked) {
+		const hasPreview = link.isPreRelease && !!link.audioFileUrl;
+		if (hasPreview && linkNeedsGate && !preReleaseUnlocked) {
 			showUnlockModal = true;
 			return;
 		}
@@ -240,19 +270,19 @@
 
 		try {
 			let url = previewUrl;
-			if (needsPreReleaseUnlock) {
+			if (hasPreview) {
 				url = streamBlobUrl || (await loadPreReleaseStream());
 			}
 
 			if (!url) {
-				if (!needsPreReleaseUnlock) {
+				if (!hasPreview) {
 					url = await fetchPreviewUrl();
 					previewUrl = url;
 				}
 			}
 
 			if (!url) {
-				previewError = needsPreReleaseUnlock
+				previewError = hasPreview
 					? 'Pre-release audio is not available yet.'
 					: 'Preview not available for this track';
 				toast.error(previewError);
@@ -310,14 +340,78 @@
 			navigatingArtist = null;
 		};
 	});
+
+	// Live countdown to expiry for pre-releases
+	$effect(() => {
+		if (!link.isPreRelease || !link.expiresAt) {
+			countdown = null;
+			return;
+		}
+		const compute = () => {
+			const diff = new Date(link.expiresAt).getTime() - Date.now();
+			if (diff <= 0) {
+				countdown = null;
+				return;
+			}
+			countdown = {
+				d: Math.floor(diff / 86400000),
+				h: Math.floor(diff / 3600000) % 24,
+				m: Math.floor(diff / 60000) % 60,
+				s: Math.floor(diff / 1000) % 60
+			};
+		};
+		compute();
+		const id = setInterval(compute, 1000);
+		return () => clearInterval(id);
+	});
+
+	// Restore unlock state on reload when the unlock cookie is still present
+	onMount(() => {
+		if (link.isPreRelease && document.cookie.includes(`unlocked_pre_release_${link.id}=true`)) {
+			preReleaseUnlocked = true;
+		}
+	});
+
+	async function downloadPreRelease() {
+		if (linkNeedsGate && !preReleaseUnlocked) {
+			showUnlockModal = true;
+			return;
+		}
+
+		downloadLoading = true;
+		try {
+			const response = await fetch(`/api/public/links/slug/${link.slug}/pre-release/download`, {
+				credentials: 'include'
+			});
+
+			if (!response.ok) {
+				const data = await response.json().catch(() => ({}));
+				throw new Error(data.error || 'Download not available for this track');
+			}
+
+			const blob = await response.blob();
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = `${link.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.mp3`;
+			document.body.appendChild(a);
+			a.click();
+			a.remove();
+			URL.revokeObjectURL(url);
+		} catch (err: any) {
+			toast.error(err?.message || 'Unable to download track');
+		} finally {
+			downloadLoading = false;
+		}
+	}
 </script>
 
 <div
-	class="pb-24 font-sans text-black dark:text-white relative min-h-screen transition-colors duration-500 selection:bg-[var(--teal)]/30 dark:selection:bg-[var(--accent)]/30"
+	class="relative min-h-screen pb-24 font-sans text-black transition-colors duration-500 selection:bg-[var(--teal)]/30 dark:text-white dark:selection:bg-[var(--accent)]/30"
 >
 	<!-- Dynamic Blurred Background -->
 	<div
-		class="inset-0 bg-white fixed z-0 h-full w-full overflow-hidden transition-colors duration-500 dark:bg-[#0A0A0B]"
+		class="fixed inset-0 z-0 h-full w-full overflow-hidden bg-white transition-colors duration-500 dark:bg-[#0A0A0B]"
 	>
 		{#if coverUrl}
 			<img
@@ -327,34 +421,34 @@
 			/>
 		{/if}
 		<div
-			class="inset-0 from-white/40 via-white/70 to-white/95 dark:from-black/20 dark:via-black/60 dark:to-black/90 absolute bg-gradient-to-b backdrop-blur-[20px] transition-colors duration-500"
+			class="absolute inset-0 bg-gradient-to-b from-white/40 via-white/70 to-white/95 backdrop-blur-[20px] transition-colors duration-500 dark:from-black/20 dark:via-black/60 dark:to-black/90"
 		></div>
 	</div>
 
 	<div class="relative z-10 flex min-h-screen flex-col">
 		<main
-			class="max-w-5xl gap-12 px-6 pt-12 md:flex-row md:items-start md:gap-16 mx-auto flex w-full flex-col items-center"
+			class="mx-auto flex w-full max-w-5xl flex-col items-center gap-12 px-6 pt-12 md:flex-row md:items-start md:gap-16"
 		>
 			<!-- Album Sticky Profile -->
 			<section
-				class="md:sticky md:top-32 md:w-[350px] md:items-start md:text-left flex flex-shrink-0 flex-col items-center text-center"
+				class="flex flex-shrink-0 flex-col items-center text-center md:sticky md:top-32 md:w-[350px] md:items-start md:text-left"
 			>
-				<div class="mb-6 group w-52 md:w-64 lg:w-full relative aspect-square">
+				<div class="group relative mb-6 aspect-square w-52 md:w-64 lg:w-full">
 					<div
-						class="-inset-4 rounded-3xl bg-black/5 dark:bg-white/5 blur-xl absolute opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+						class="absolute -inset-4 rounded-3xl bg-black/5 opacity-0 blur-xl transition-opacity duration-500 group-hover:opacity-100 dark:bg-white/5"
 					></div>
 					<button
 						onclick={togglePlayback}
 						disabled={isLoading || !link.title}
 						title={!link.title ? 'Preview not available for this album' : ''}
-						class="inset-0 rounded-2xl hover:bg-black/10 dark:hover:bg-white/10 absolute z-20 flex items-center justify-center border-transparent bg-transparent transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-50"
+						class="absolute inset-0 z-20 flex items-center justify-center rounded-2xl border-transparent bg-transparent transition-all duration-300 hover:bg-black/10 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-white/10"
 					>
 						<div
-							class="h-12 w-12 md:h-16 md:w-16 bg-white/10 dark:bg-black/30 backdrop-blur-sm border-white/20 shadow-lg flex items-center justify-center rounded-full border transition-transform duration-300 group-hover:scale-110 dark:border-(--border)"
+							class="flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-white/10 shadow-lg backdrop-blur-sm transition-transform duration-300 group-hover:scale-110 md:h-16 md:w-16 dark:border-(--border) dark:bg-black/30"
 						>
 							{#if isLoading}
 								<svg
-									class="animate-spin size-6 md:size-8 text-(--teal) dark:text-(--accent)"
+									class="size-6 animate-spin text-(--teal) md:size-8 dark:text-(--accent)"
 									xmlns="http://www.w3.org/2000/svg"
 									fill="none"
 									viewBox="0 0 24 24"
@@ -387,32 +481,39 @@
 						</div>
 					</button>
 					<Badge
-						class="md:hidden bg-black/5 backdrop-blur-sm top-2 left-2 dark:bg-white/10 text-black/60 dark:text-white/70 border-black/10 dark:border-white/20 font-bold tracking-wider absolute z-20 w-fit text-[10px] uppercase"
+						class="absolute top-2 left-2 z-20 w-fit border-black/10 bg-black/5 text-[10px] font-bold tracking-wider text-black/60 uppercase backdrop-blur-sm md:hidden dark:border-white/20 dark:bg-white/10 dark:text-white/70"
 					>
 						{albumType}
 					</Badge>
 					<img
 						src={coverUrl}
 						alt="Album Cover"
-						class="rounded-2xl border-black/5 dark:border-white/10 relative z-10 h-full w-full border object-cover shadow-[0_20px_40px_rgba(0,0,0,0.15)] transition-transform duration-500 group-hover:scale-[1.02] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
+						class="relative z-10 h-full w-full rounded-2xl border border-black/5 object-cover shadow-[0_20px_40px_rgba(0,0,0,0.15)] transition-transform duration-500 group-hover:scale-[1.02] dark:border-white/10 dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
 					/>
 				</div>
 
-				<div class="mb-4 space-y-2 w-full">
-					<div class="gap-2 md:justify-start flex items-center justify-center">
+				<div class="mb-4 w-full space-y-2">
+					<div class="flex items-center justify-center gap-2 md:justify-start">
 						<h1
-							class="text-3xl md:text-4xl leading-tight font-extrabold text-black dark:text-white tracking-tight drop-shadow-sm dark:drop-shadow-lg transition-colors duration-500"
+							class="text-3xl leading-tight font-extrabold tracking-tight text-black drop-shadow-sm transition-colors duration-500 md:text-4xl dark:text-white dark:drop-shadow-lg"
 						>
 							{albumTitle}
 						</h1>
 						<Badge
-							class="md:block bg-black/5 dark:bg-white/10 text-black/60 dark:text-white/70 border-black/10 dark:border-white/20 font-bold tracking-wider hidden w-fit text-[10px] uppercase"
+							class="hidden w-fit border-black/10 bg-black/5 text-[10px] font-bold tracking-wider text-black/60 uppercase md:block dark:border-white/20 dark:bg-white/10 dark:text-white/70"
 						>
 							{albumType}
 						</Badge>
+						{#if link.isPreRelease}
+							<Badge
+								class="hidden w-fit border-[var(--teal)]/20 bg-[var(--teal)]/10 text-[10px] font-bold tracking-wider text-(--teal) uppercase md:inline-flex dark:border-[var(--accent)]/25 dark:bg-[var(--accent)]/10 dark:text-(--accent)"
+							>
+								Pre-Release
+							</Badge>
+						{/if}
 					</div>
 					<div
-						class="text-xl font-semibold text-(--teal) dark:text-(--accent) drop-shadow-sm dark:drop-shadow-md transition-colors duration-500"
+						class="text-xl font-semibold text-(--teal) drop-shadow-sm transition-colors duration-500 dark:text-(--accent) dark:drop-shadow-md"
 					>
 						{#each artist.split(',') as artistName, index}
 							<button
@@ -422,7 +523,7 @@
 							>
 								{#if navigatingArtist === artistName.trim()}
 									<svg
-										class="animate-spin size-4 mr-1 inline"
+										class="mr-1 inline size-4 animate-spin"
 										xmlns="http://www.w3.org/2000/svg"
 										fill="none"
 										viewBox="0 0 24 24"
@@ -460,51 +561,51 @@
 				{/if} -->
 			</section>
 
-			<section class="min-w-0 max-w-lg md:flex-grow flex w-full flex-1 flex-col">
+			<section class="flex w-full max-w-lg min-w-0 flex-1 flex-col md:flex-grow">
 				<h3
-					class="mb-6 text-lg font-bold text-black/80 dark:text-white/90 drop-shadow-sm dark:drop-shadow-md tracking-widest pl-2 uppercase transition-colors duration-500"
+					class="mb-6 pl-2 text-lg font-bold tracking-widest text-black/80 uppercase drop-shadow-sm transition-colors duration-500 dark:text-white/90 dark:drop-shadow-md"
 				>
 					{link.isPreRelease ? 'Pre-save On' : 'Available On'}
 				</h3>
 				{#if link.isPreRelease}
 					{#if availablePlatforms.length > 0}
-						<p class="mb-4 text-sm text-black/60 dark:text-white/70 pl-2">
+						<p class="mb-4 pl-2 text-sm text-black/60 dark:text-white/70">
 							Fans can pre-save on Spotify and Apple Music while this track remains unreleased.
 						</p>
 					{:else}
-						<p class="mb-4 text-sm text-black/60 dark:text-white/70 pl-2">
+						<p class="mb-4 pl-2 text-sm text-black/60 dark:text-white/70">
 							This pre-save campaign is active. Add Spotify or Apple Music URLs in the dashboard to
 							enable pre-save buttons.
 						</p>
 					{/if}
 				{/if}
-				<div class="gap-3 flex flex-col">
+				<div class="flex flex-col gap-3">
 					{#each availablePlatforms as platform}
 						<button
 							onclick={() => onPlatformClick(platform.url, platform.name)}
-							class="group rounded-2xl border-black/5 dark:border-white/5 bg-white/40 dark:bg-white/5 p-3 md:p-4 backdrop-blur-xl hover:-translate-y-1 hover:border-black/10 dark:hover:border-white/20 hover:bg-white/60 dark:hover:bg-white/10 hover:shadow-xl dark:hover:shadow-2xl relative flex w-full cursor-pointer items-center justify-between border transition-all duration-300 hover:shadow-[var(--teal)]/10 dark:hover:shadow-[var(--accent)]/10"
+							class="group relative flex w-full cursor-pointer items-center justify-between rounded-2xl border border-black/5 bg-white/40 p-3 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-black/10 hover:bg-white/60 hover:shadow-[var(--teal)]/10 hover:shadow-xl md:p-4 dark:border-white/5 dark:bg-white/5 dark:hover:border-white/20 dark:hover:bg-white/10 dark:hover:shadow-[var(--accent)]/10 dark:hover:shadow-2xl"
 						>
-							<div class="gap-3 md:gap-4 flex items-center">
-						<div
-								class="h-10 w-10 md:h-12 md:w-12 shadow-lg flex items-center justify-center rounded-[14px] transition-transform duration-300 group-hover:scale-110"
-								style="background: {getPlatformColor(platform.name)}"
-							>
-								{#if getPlatformSvg(platform.name)}
-									<img
-										src={getPlatformSvg(platform.name)}
-										alt={platform.name}
-										class="size-5 md:size-6 shrink-0 drop-shadow-md"
-									/>
-								{:else}
-									<span
-										class="size-5 md:size-6 flex items-center justify-center text-white text-xs font-bold drop-shadow-md"
-									>
-										{platform.name.slice(0, 2).toUpperCase()}
-									</span>
-								{/if}
-							</div>
+							<div class="flex items-center gap-3 md:gap-4">
+								<div
+									class="flex h-10 w-10 items-center justify-center rounded-[14px] shadow-lg transition-transform duration-300 group-hover:scale-110 md:h-12 md:w-12"
+									style="background: {getPlatformColor(platform.name)}"
+								>
+									{#if getPlatformSvg(platform.name)}
+										<img
+											src={getPlatformSvg(platform.name)}
+											alt={platform.name}
+											class="size-5 shrink-0 drop-shadow-md md:size-6"
+										/>
+									{:else}
+										<span
+											class="flex size-5 items-center justify-center text-xs font-bold text-white drop-shadow-md md:size-6"
+										>
+											{platform.name.slice(0, 2).toUpperCase()}
+										</span>
+									{/if}
+								</div>
 								<span
-									class="font-bold text-base md:text-lg text-black/80 dark:text-white/90 drop-shadow-sm group-hover:text-black dark:group-hover:text-white transition-colors duration-500"
+									class="text-base font-bold text-black/80 drop-shadow-sm transition-colors duration-500 group-hover:text-black md:text-lg dark:text-white/90 dark:group-hover:text-white"
 								>
 									{platform.name}
 								</span>
@@ -513,12 +614,12 @@
 							<div class="pr-1 md:pr-2">
 								{#if clickedNames.includes(platform.name)}
 									<Badge
-										class="bg-black/5 dark:bg-white/20 text-black/60 dark:text-white backdrop-blur-md border-black/5 dark:border-white/10 tracking-widest font-bold text-[9px] uppercase"
+										class="border-black/5 bg-black/5 text-[9px] font-bold tracking-widest text-black/60 uppercase backdrop-blur-md dark:border-white/10 dark:bg-white/20 dark:text-white"
 										>Opened</Badge
 									>
 								{:else}
 									<div
-										class="h-7 w-7 md:h-8 md:w-8 bg-black/5 dark:bg-white/5 group-hover:bg-black/10 dark:group-hover:bg-white/20 flex items-center justify-center rounded-full transition-colors"
+										class="flex h-7 w-7 items-center justify-center rounded-full bg-black/5 transition-colors group-hover:bg-black/10 md:h-8 md:w-8 dark:bg-white/5 dark:group-hover:bg-white/20"
 									>
 										<HugeiconsIcon
 											icon={ExternalLink}
@@ -531,37 +632,136 @@
 					{/each}
 				</div>
 
+				{#if link.isPreRelease}
+					<div
+						class="mt-12 rounded-[22px] border border-[var(--teal)]/20 bg-[var(--teal)]/10 p-5 backdrop-blur-xl md:p-6 dark:border-[var(--accent)]/25 dark:bg-[var(--accent)]/10"
+					>
+						<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+							<h3
+								class="text-lg font-bold tracking-widest text-black/80 uppercase transition-colors duration-500 dark:text-white/90"
+							>
+								Pre-Release
+							</h3>
+							{#if countdown}
+								<span
+									class="inline-flex items-center gap-1.5 rounded-full bg-black/5 px-3 py-1 text-xs font-bold text-black/70 tabular-nums dark:bg-white/10 dark:text-white/80"
+								>
+									<HugeiconsIcon
+										icon={Clock02Icon}
+										className="size-4 text-(--teal) dark:text-(--accent)"
+									/>
+									Drops in {countdown.d}d {countdown.h}h {countdown.m}m {countdown.s}s
+								</span>
+							{/if}
+						</div>
+
+						<div class="flex flex-col gap-3">
+							{#if canDownload}
+								<button
+									onclick={downloadPreRelease}
+									disabled={downloadLoading}
+									class="group relative flex w-full cursor-pointer items-center justify-between gap-3 rounded-2xl border border-black/5 bg-white/50 p-4 backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-white/5"
+								>
+									<span class="flex items-center gap-3">
+										<span
+											class="flex h-10 w-10 items-center justify-center rounded-[14px] bg-[var(--teal)]/10 dark:bg-[var(--accent)]/10"
+										>
+											<HugeiconsIcon
+												icon={Download01Icon}
+												className="size-5 text-(--teal) dark:text-(--accent)"
+											/>
+										</span>
+										<span class="text-left">
+											<span class="block text-base font-bold text-black/80 dark:text-white/90"
+												>{downloadLoading ? 'Downloading...' : 'Download'}</span
+											>
+											<span class="block text-xs font-medium text-black/50 dark:text-white/50"
+												>Grab the track before everyone else</span
+											>
+										</span>
+									</span>
+									<span class="pr-1 text-sm font-bold text-(--teal) uppercase dark:text-(--accent)"
+										>Free</span
+									>
+								</button>
+							{/if}
+
+							{#if buyUrl}
+								<a
+									href={buyUrl}
+									target="_blank"
+									rel="noopener noreferrer"
+									class="group relative flex w-full items-center justify-between gap-3 rounded-2xl border bg-[var(--teal)] p-4 shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl dark:bg-[var(--accent)] dark:hover:shadow-[var(--accent)]/30"
+								>
+									<span class="flex items-center gap-3">
+										<span
+											class="flex h-10 w-10 items-center justify-center rounded-[14px] bg-black/10 text-black dark:text-black"
+										>
+											<HugeiconsIcon icon={ShoppingBag01Icon} className="size-5" />
+										</span>
+										<span class="text-left">
+											<span class="block text-base font-extrabold text-black dark:text-black"
+												>Buy • {buyDisplay}</span
+											>
+											<span class="block text-xs font-semibold text-black/70 dark:text-black/70"
+												>Pay once — your listen passcode is emailed instantly</span
+											>
+										</span>
+									</span>
+									<HugeiconsIcon
+										icon={ArrowRight01Icon}
+										className="size-5 text-black dark:text-black"
+									/>
+								</a>
+							{/if}
+
+							{#if link.maxAccessCount}
+								<p class="text-xs font-medium text-black/50 dark:text-white/50">
+									Limited to {link.maxAccessCount} listener{link.maxAccessCount === 1 ? '' : 's'} —
+									{link.accessCount ?? 0} already claimed.
+								</p>
+							{/if}
+
+							{#if !canDownload && !buyUrl && !link.maxAccessCount}
+								<p class="text-xs font-medium text-black/50 dark:text-white/50">
+									Pre-save or pre-order this track to be first in line when it drops.
+								</p>
+							{/if}
+						</div>
+					</div>
+				{/if}
+
 				{#if filteredRelatedAlbums.length > 0}
 					<div class="mt-20">
-						<div class="mb-8 pl-2 flex items-center justify-between">
+						<div class="mb-8 flex items-center justify-between pl-2">
 							<h3
-								class="text-lg font-bold text-black/80 dark:text-white/90 tracking-widest drop-shadow-sm dark:drop-shadow-md uppercase transition-colors duration-500"
+								class="text-lg font-bold tracking-widest text-black/80 uppercase drop-shadow-sm transition-colors duration-500 dark:text-white/90 dark:drop-shadow-md"
 							>
 								More By {mainArtist}
 							</h3>
 						</div>
 
 						<div
-							class="hide-scrollbar gap-6 pb-8 md:grid md:grid-cols-2 lg:grid-cols-2 flex snap-x snap-mandatory overflow-x-auto"
+							class="hide-scrollbar flex snap-x snap-mandatory gap-6 overflow-x-auto pb-8 md:grid md:grid-cols-2 lg:grid-cols-2"
 						>
 							{#each filteredRelatedAlbums as album}
 								<a
 									href={`/${album.slug}`}
-									class="group md:w-full relative block w-[180px] flex-shrink-0 cursor-pointer snap-start"
+									class="group relative block w-[180px] flex-shrink-0 cursor-pointer snap-start md:w-full"
 								>
 									<div
-										class="mb-4 rounded-2xl shadow-lg dark:shadow-xl shadow-black/10 dark:shadow-black/40 border-black/5 dark:border-white/10 bg-black/5 dark:bg-white/5 backdrop-blur-sm aspect-square overflow-hidden border transition-all duration-500"
+										class="mb-4 aspect-square overflow-hidden rounded-2xl border border-black/5 bg-black/5 shadow-lg shadow-black/10 backdrop-blur-sm transition-all duration-500 dark:border-white/10 dark:bg-white/5 dark:shadow-xl dark:shadow-black/40"
 									>
 										<img
 											src={album.artwork || album.thumbnail}
 											alt={album.title}
-											class="ease-out h-full w-full object-cover transition-transform duration-700 group-hover:scale-110 group-hover:brightness-110"
+											class="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-110 group-hover:brightness-110"
 										/>
 									</div>
-									<div class="gap-3 px-1 flex items-start justify-between">
+									<div class="flex items-start justify-between gap-3 px-1">
 										<div class="min-w-0">
 											<h4
-												class="text-base font-bold text-black/80 dark:text-white/90 group-hover:text-black dark:group-hover:text-white truncate transition-colors"
+												class="truncate text-base font-bold text-black/80 transition-colors group-hover:text-black dark:text-white/90 dark:group-hover:text-white"
 											>
 												{album.title}
 											</h4>
@@ -571,7 +771,7 @@
 										</div>
 										{#if album.genre}
 											<span
-												class="mt-1 rounded bg-black/5 dark:bg-white/10 px-2 py-0.5 font-bold text-black/60 dark:text-white/70 border-black/10 dark:border-white/20 flex-shrink-0 border text-[10px]"
+												class="mt-1 flex-shrink-0 rounded border border-black/10 bg-black/5 px-2 py-0.5 text-[10px] font-bold text-black/60 dark:border-white/20 dark:bg-white/10 dark:text-white/70"
 												>{album.genre}</span
 											>
 										{/if}
@@ -582,83 +782,22 @@
 					</div>
 				{/if}
 			</section>
-			{#if showUnlockModal}
-				<!-- class="mt-4 rounded-3xl bg-white/95 p-4 shadow-sm absolute z-50 border border-[#e2e8f0] dark:border-[var(--border)] dark:bg-[var(--card)]" -->
-				<div class="top-0 left-0 fixed z-20 grid h-full w-full place-items-center">
-					<div class="inset-0 bg-black/30 backdrop-blur-lg fixed dark:bg-(--bg)/20"></div>
-					<div
-						class="max-w-sm gap-6 bg-white backdrop-blur-lg p-6 rounded-[18px] border-transparent dark:border-[var(--border)] dark:bg-[var(--card)]"
-						style="box-shadow: 0px 10px 30px 0px #0b12201a;"
-					>
-						<p class="mb-3 text-sm font-semibold text-[#0f172a] dark:text-[var(--text)]">
-							Unlock early access to this pre-release track
-						</p>
-						{#if link.requiresPassword}
-							<label
-								for="unlock-passcode"
-								class="mb-1 font-semibold block text-[12px] text-[#475569] dark:text-[var(--text-secondary)]"
-							>
-								Passcode
-							</label>
-							<input
-								id="unlock-passcode"
-								type="text"
-								bind:value={unlockPasscode}
-								class="mb-3 px-3 py-2 text-sm w-full rounded-[12px] border border-[#e2e8f0] bg-[#f8fafc] text-[#0f172a] transition outline-none focus:border-[var(--teal)] dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-[var(--text)]"
-							/>
-						{/if}
-						{#if link.requiresEmailCapture}
-							<label
-								for="unlock-email"
-								class="mb-1 font-semibold block text-[12px] text-[#475569] dark:text-[var(--text-secondary)]"
-							>
-								Email address
-							</label>
-							<input
-								id="unlock-email"
-								type="email"
-								bind:value={unlockEmail}
-								class="mb-3 px-3 py-2 text-sm w-full rounded-[12px] border border-[#e2e8f0] bg-[#f8fafc] text-[#0f172a] transition outline-none focus:border-[var(--teal)] dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-[var(--text)]"
-							/>
-							<label
-								for="unlock-name"
-								class="mb-1 font-semibold block text-[12px] text-[#475569] dark:text-[var(--text-secondary)]"
-							>
-								Name (optional)
-							</label>
-							<input
-								id="unlock-name"
-								type="text"
-								bind:value={unlockName}
-								class="mb-3 px-3 py-2 text-sm w-full rounded-[12px] border border-[#e2e8f0] bg-[#f8fafc] text-[#0f172a] transition outline-none focus:border-[var(--teal)] dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-[var(--text)]"
-							/>
-						{/if}
-						{#if unlockError}
-							<p class="mb-3 text-sm text-red-500">{unlockError}</p>
-						{/if}
-						<div class="gap-3 flex flex-wrap">
-							<button
-								onclick={unlockPreRelease}
-								disabled={isUnlocking}
-								class="px-4 py-2 text-sm font-semibold inline-flex items-center justify-center rounded-[12px] bg-[var(--teal)] text-[#0f172a] transition hover:bg-[#22c55e] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[var(--accent)] dark:hover:bg-[var(--accent)]/90"
-							>
-								{#if isUnlocking}Unlocking...{:else}Unlock Access{/if}
-							</button>
-							<button
-								onclick={() => (showUnlockModal = false)}
-								type="button"
-								class="px-4 py-2 text-sm font-semibold inline-flex items-center justify-center rounded-[12px] border border-[#cbd5e1] bg-transparent text-[#475569] transition hover:bg-[#f8fafc] dark:border-[var(--border)] dark:text-[var(--text)] dark:hover:bg-[var(--border)]"
-							>
-								Cancel
-							</button>
-						</div>
-					</div>
-				</div>
+			{#if link.isPreRelease}
+				<PreReleaseUnlockDialog
+					bind:open={showUnlockModal}
+					{link}
+					{isUnlocking}
+					{unlockError}
+					bind:unlockPasscode
+					bind:unlockEmail
+					bind:unlockName
+					onUnlock={unlockPreRelease}
+				/>
 			{/if}
 		</main>
 
 		<footer
-			class="py-8 pb-24 text-center text-sm text-black/40 dark:text-white/40 relative z-10 transition-colors duration-500"
+			class="relative z-10 py-8 pb-24 text-center text-sm text-black/40 transition-colors duration-500 dark:text-white/40"
 		>
 			<p>© {new Date().getFullYear()} {app.name}. All rights reserved.</p>
 		</footer>

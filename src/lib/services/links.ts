@@ -1,5 +1,5 @@
 import { nanoid } from 'nanoid';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, asc, desc } from 'drizzle-orm';
 import type { Link } from '$lib/types/social';
 import { links, preReleaseEmails } from '$lib/server/db/schema';
 import { db } from '$lib/server/db';
@@ -10,8 +10,8 @@ export class LinkService {
 			const result = await db
 				.select()
 				.from(links)
-				.where(eq(links.userId, userId))
-				.orderBy(desc(links.createdAt));
+				.where(and(eq(links.userId, userId), eq(links.isArchived, false)))
+				.orderBy(asc(links.sortOrder), desc(links.createdAt));
 
 			return result.map(this.mapDbToLink);
 		} catch (error) {
@@ -25,7 +25,9 @@ export class LinkService {
 			const result = await db
 				.select()
 				.from(links)
-				.where(and(eq(links.slug, slug), eq(links.isPublic, true)))
+				.where(
+					and(eq(links.slug, slug), eq(links.isPublic, true), eq(links.isArchived, false))
+				)
 				.limit(1);
 
 			return result.length > 0 ? this.mapDbToLink(result[0]) : null;
@@ -64,6 +66,8 @@ export class LinkService {
 			albumType: dbLink.albumType || undefined,
 			createdAt: dbLink.createdAt,
 			updatedAt: dbLink.updatedAt,
+			upc: dbLink.upc || null,
+			isrc: dbLink.isrc || null,
 			isPreRelease: dbLink.isPreRelease ?? false,
 			requiresPassword: dbLink.requiresPassword ?? false,
 			requiresEmailCapture: dbLink.requiresEmailCapture ?? false,
@@ -73,7 +77,12 @@ export class LinkService {
 			audioFileUrl: dbLink.audioFileUrl || undefined,
 			audioFileCloudinaryId: dbLink.audioFileCloudinaryId || undefined,
 			maxAccessCount: dbLink.maxAccessCount ?? undefined,
-			accessCount: dbLink.accessCount ?? 0
+			accessCount: dbLink.accessCount ?? 0,
+			buyPrice: dbLink.buyPrice ?? undefined,
+			buyCurrency: dbLink.buyCurrency ?? 'NGN',
+			buyEnabled: dbLink.buyEnabled ?? false,
+			sortOrder: dbLink.sortOrder ?? 0,
+			isArchived: dbLink.isArchived ?? false
 		};
 	}
 
