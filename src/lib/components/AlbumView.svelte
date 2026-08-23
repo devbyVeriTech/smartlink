@@ -562,25 +562,19 @@
 			</section>
 
 			<section class="flex w-full max-w-lg min-w-0 flex-1 flex-col md:flex-grow">
-				<h3
-					class="mb-6 pl-2 text-lg font-bold tracking-widest text-black/80 uppercase drop-shadow-sm transition-colors duration-500 dark:text-white/90 dark:drop-shadow-md"
-				>
-					{link.isPreRelease ? 'Pre-save On' : 'Available On'}
-				</h3>
-				{#if link.isPreRelease}
-					{#if availablePlatforms.length > 0}
+				{#if !link.isPreRelease || availablePlatforms.length > 0}
+					<h3
+						class="mb-6 pl-2 text-lg font-bold tracking-widest text-black/80 uppercase drop-shadow-sm transition-colors duration-500 dark:text-white/90 dark:drop-shadow-md"
+					>
+						{link.isPreRelease ? 'Pre-save On' : 'Available On'}
+					</h3>
+					{#if link.isPreRelease && availablePlatforms.length > 0}
 						<p class="mb-4 pl-2 text-sm text-black/60 dark:text-white/70">
 							Fans can pre-save on Spotify and Apple Music while this track remains unreleased.
 						</p>
-					{:else}
-						<p class="mb-4 pl-2 text-sm text-black/60 dark:text-white/70">
-							This pre-save campaign is active. Add Spotify or Apple Music URLs in the dashboard to
-							enable pre-save buttons.
-						</p>
 					{/if}
-				{/if}
-				<div class="flex flex-col gap-3">
-					{#each availablePlatforms as platform}
+					<div class="flex flex-col gap-3">
+						{#each availablePlatforms as platform}
 						<button
 							onclick={() => onPlatformClick(platform.url, platform.name)}
 							class="group relative flex w-full cursor-pointer items-center justify-between rounded-2xl border border-black/5 bg-white/40 p-3 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-black/10 hover:bg-white/60 hover:shadow-[var(--teal)]/10 hover:shadow-xl md:p-4 dark:border-white/5 dark:bg-white/5 dark:hover:border-white/20 dark:hover:bg-white/10 dark:hover:shadow-[var(--accent)]/10 dark:hover:shadow-2xl"
@@ -631,6 +625,7 @@
 						</button>
 					{/each}
 				</div>
+				{/if}
 
 				{#if link.isPreRelease}
 					<div
