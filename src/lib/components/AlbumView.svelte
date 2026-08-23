@@ -106,6 +106,125 @@
 
 	let albumType = $derived(getAlbumType());
 
+	let lastPositionUpdate = 0;
+
+	function supportsMediaSession(): boolean {
+		return typeof navigator !== 'undefined' && 'mediaSession' in navigator;
+	}
+
+	function setMediaMetadata() {
+		if (!supportsMediaSession() || !albumTitle) return;
+		try {
+			const artworkSrc = coverUrl || app.logo;
+			const artwork = artworkSrc
+				? [
+						{ src: artworkSrc, sizes: '512x512', type: 'image/jpeg' },
+						{ src: artworkSrc, sizes: '256x256', type: 'image/jpeg' },
+						{ src: artworkSrc, sizes: '96x96', type: 'image/jpeg' }
+					]
+				: [];
+			navigator.mediaSession.metadata = new MediaMetadata({
+				title: albumTitle,
+				artist: artist || 'Unknown Artist',
+				album: albumTitle,
+				artwork
+			});
+		} catch {}
+	}
+
+	function updatePositionState() {
+		if (!supportsMediaSession() || !audio) return;
+		const ms = navigator.mediaSession as any;
+		if (typeof ms.setPositionState !== 'function') return;
+		const duration = audio.duration;
+		if (!Number.isFinite(duration) || duration <= 0) return;
+		const now = Date.now();
+		if (now - lastPositionUpdate < 800 && audio.currentTime !== 0 && audio.currentTime !== duration) return;
+		lastPositionUpdate = now;
+		try {
+			ms.setPositionState({
+				duration,
+				playbackRate: audio.playbackRate || 1,
+				position: Math.min(Math.max(0, audio.currentTime), duration)
+			});
+		} catch {}
+	}
+
+	function setMediaActionHandlers() {
+		if (!supportsMediaSession() || !audio) return;
+		try {
+			navigator.mediaSession.setActionHandler('play', async () => {
+				try {
+					await audio?.play();
+				} catch {}
+			});
+			navigator.mediaSession.setActionHandler('pause', () => {
+				audio?.pause();
+			});
+			navigator.mediaSession.setActionHandler('stop', () => {
+				if (audio) {
+					audio.pause();
+					audio.currentTime = 0;
+					isPlaying = false;
+				}
+				try {
+					(navigator.mediaSession as any).playbackState = 'none';
+				} catch {}
+			});
+			navigator.mediaSession.setActionHandler('seekbackward', (details: any) => {
+				if (!audio) return;
+				const offset = details?.seekOffset ?? 10;
+				audio.currentTime = Math.max(0, audio.currentTime - offset);
+				updatePositionState();
+			});
+			navigator.mediaSession.setActionHandler('seekforward', (details: any) => {
+				if (!audio || !Number.isFinite(audio.duration)) return;
+				const offset = details?.seekOffset ?? 10;
+				audio.currentTime = Math.min(audio.duration, audio.currentTime + offset);
+				updatePositionState();
+			});
+			navigator.mediaSession.setActionHandler('seekto', (details: any) => {
+				if (!audio || !Number.isFinite(audio.duration)) return;
+				if (details?.fastSeek && 'fastSeek' in audio) {
+					(audio as any).fastSeek(details.seekTime);
+					return;
+				}
+				audio.currentTime = Math.min(
+					Math.max(0, details.seekTime ?? 0),
+					audio.duration
+				);
+				updatePositionState();
+			});
+		} catch {}
+	}
+
+	function clearMediaSessionHandlers() {
+		if (!supportsMediaSession()) return;
+		for (const action of [
+			'play',
+			'pause',
+			'stop',
+			'seekbackward',
+			'seekforward',
+			'seekto'
+		] as const) {
+			try {
+				navigator.mediaSession.setActionHandler(action, null);
+			} catch {}
+		}
+	}
+
+	function clearMediaSession() {
+		if (!supportsMediaSession()) return;
+		try {
+			navigator.mediaSession.metadata = null;
+		} catch {}
+		try {
+			(navigator.mediaSession as any).playbackState = 'none';
+		} catch {}
+		clearMediaSessionHandlers();
+	}
+
 	// let {
 	// 	artist = 'Cherrydee',
 	// 	albumTitle = 'Dey (feat. KDream & YCHINZ) - Single',
@@ -242,20 +361,30 @@
 		}
 	}
 
-	// Simple play/pause toggle with direct MP3
 	async function togglePlayback() {
-		// If already playing, pause
 		if (isPlaying && audio) {
 			audio.pause();
 			audio.currentTime = 0;
 			isPlaying = false;
+			if (supportsMediaSession()) {
+				try {
+					(navigator.mediaSession as any).playbackState = 'paused';
+				} catch {}
+			}
 			return;
 		}
 
-		// If paused, resume
 		if (audio && !isPlaying) {
+			setMediaMetadata();
+			setMediaActionHandlers();
 			await audio.play();
 			isPlaying = true;
+			if (supportsMediaSession()) {
+				try {
+					(navigator.mediaSession as any).playbackState = 'playing';
+				} catch {}
+				updatePositionState();
+			}
 			return;
 		}
 
@@ -290,19 +419,65 @@
 			}
 
 			audio = new Audio(url);
+			audio.preload = 'metadata';
 
+			audio.addEventListener('loadedmetadata', () => {
+				updatePositionState();
+			});
+			audio.addEventListener('timeupdate', () => {
+				updatePositionState();
+			});
+			audio.addEventListener('seeked', () => {
+				updatePositionState();
+			});
+			audio.addEventListener('play', () => {
+				isPlaying = true;
+				if (supportsMediaSession()) {
+					try {
+						(navigator.mediaSession as any).playbackState = 'playing';
+					} catch {}
+				}
+			});
+			audio.addEventListener('pause', () => {
+				isPlaying = false;
+				if (supportsMediaSession()) {
+					try {
+						(navigator.mediaSession as any).playbackState = 'paused';
+					} catch {}
+				}
+			});
 			audio.addEventListener('ended', () => {
 				isPlaying = false;
+				if (supportsMediaSession()) {
+					try {
+						(navigator.mediaSession as any).playbackState = 'none';
+					} catch {}
+					const ms = navigator.mediaSession as any;
+					if (typeof ms.setPositionState === 'function' && audio && Number.isFinite(audio.duration)) {
+						try {
+							ms.setPositionState({ duration: audio.duration, playbackRate: 1, position: 0 });
+						} catch {}
+					}
+				}
 			});
 
 			audio.addEventListener('error', () => {
 				previewError = 'Failed to play preview';
 				toast.error(previewError);
 				isPlaying = false;
+				clearMediaSession();
 			});
 
+			setMediaMetadata();
+			setMediaActionHandlers();
 			await audio.play();
 			isPlaying = true;
+			if (supportsMediaSession()) {
+				try {
+					(navigator.mediaSession as any).playbackState = 'playing';
+				} catch {}
+				updatePositionState();
+			}
 		} catch (err) {
 			console.error('Playback error:', err);
 			previewError = 'Failed to play preview';
@@ -314,18 +489,19 @@
 
 	// Reset audio when navigating to a different song (SvelteKit reuses the component)
 	$effect(() => {
-		// Track the current link slug — when it changes, clean up audio
 		const _currentSlug = link.slug;
 
 		return () => {
-			// Cleanup runs when slug changes or component unmounts
 			if (audio) {
 				audio.pause();
+				audio.src = '';
+				audio.load();
 				audio = null;
 			}
 			if (streamBlobUrl) {
 				URL.revokeObjectURL(streamBlobUrl);
 			}
+			clearMediaSession();
 			isPlaying = false;
 			isLoading = false;
 			previewUrl = null;
@@ -338,6 +514,7 @@
 			unlockName = '';
 			unlockError = null;
 			navigatingArtist = null;
+			lastPositionUpdate = 0;
 		};
 	});
 
