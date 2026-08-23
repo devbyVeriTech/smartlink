@@ -74,7 +74,7 @@
 			platforms.push(...link.additionalPlatforms);
 		}
 
-		if (platforms.length === 0 && link.url) {
+		if (platforms.length === 0 && link.url && !link.isPreRelease) {
 			if (link.url.includes('spotify')) platforms.push({ name: 'Spotify', url: link.url });
 			else if (link.url.includes('apple')) platforms.push({ name: 'Apple Music', url: link.url });
 			else if (link.url.includes('youtube'))
