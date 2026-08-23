@@ -731,7 +731,7 @@
 					</div>
 				{/if}
 
-				{#if filteredRelatedAlbums.length > 0}
+				{#if !link.isPreRelease && filteredRelatedAlbums.length > 0}
 					<div class="mt-20">
 						<div class="mb-8 flex items-center justify-between pl-2">
 							<h3
