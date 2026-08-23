@@ -86,7 +86,7 @@
 	let mainArtist = $derived(getMainArtist(artist));
 	let filteredRelatedAlbums = $derived(
 		relatedAlbums.filter(
-			(album: any) => getMainArtist(album.artist).toLowerCase() === mainArtist.toLowerCase()
+			(album: any) => getMainArtist(album.artist).toLowerCase() === mainArtist.toLowerCase() && !album.isPreRelease
 		)
 	);
 

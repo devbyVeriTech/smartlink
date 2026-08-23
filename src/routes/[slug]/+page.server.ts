@@ -21,11 +21,11 @@ export const load: PageServerLoad = async ({ params, url }) => {
 		throw redirect(302, link.url);
 	}
 
-	// 2. Get related links by the same user (excluding this one)
+	// 2. Get related links by the same user (excluding this one) — hide pre-releases from public carousel
 	let relatedAlbums = await linkService.getLinksByUserId(link.userId);
 
-	// Filter out the current link and ensure they are all public
-	relatedAlbums = relatedAlbums.filter((r) => r.id !== link.id && r.isPublic);
+	// Filter out the current link, non-public, and all pre-releases (private shares only via direct link)
+	relatedAlbums = relatedAlbums.filter((r) => r.id !== link.id && r.isPublic && !r.isPreRelease);
 
 	// Build canonical URL
 	const canonicalUrl = new URL(url.pathname, url.origin).href;
