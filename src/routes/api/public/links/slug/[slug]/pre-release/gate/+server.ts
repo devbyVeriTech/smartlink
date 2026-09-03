@@ -9,7 +9,7 @@ import bcrypt from 'bcryptjs';
 import { getVisitorKey, recordPreReleaseAccess } from '$lib/server/utils/pre-release-access';
 import { verifyPasscode } from '$lib/server/utils/pre-release-passcode';
 import { db } from '$lib/server/db';
-import { orders, passcodes } from '$lib/server/db/schema';
+import { passcodes } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 
 export const POST: RequestHandler = async (event) => {
@@ -60,12 +60,6 @@ export const POST: RequestHandler = async (event) => {
 			if (!valid) {
 				return json({ error: 'Incorrect passcode' }, { status: 401 });
 			}
-
-			// Mark this passcode as used so it cannot be reused.
-			await db
-				.update(passcodes)
-				.set({ is_used: true, used_at: new Date() })
-				.where(eq(passcodes.id, passcodeRow.id));
 
 			// Paid fans are never blocked by the unique-listener cap; log purely for stats.
 			const paidVisitorKey = getVisitorKey(event);
