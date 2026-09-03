@@ -1,3 +1,5 @@
+declare module '@paystack/inline-js';
+
 declare global {
 	namespace App {
 		interface Locals {

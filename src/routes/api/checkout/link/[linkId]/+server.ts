@@ -38,6 +38,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
 		return json({
 			url: data.url,
+			accessCode: data.accessCode,
 			reference: data.reference,
 			orderId: data.orderId
 		});

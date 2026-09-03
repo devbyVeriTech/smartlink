@@ -15,6 +15,7 @@
 		CreditCardIcon
 	} from '@hugeicons/core-free-icons';
 	import type { Link } from '$lib/types/social';
+	import { env } from '$env/dynamic/public';
 
 	let {
 		open = $bindable(false),
@@ -37,9 +38,6 @@
 			? `₦${(link.buyPrice / 100).toLocaleString('en-NG', { maximumFractionDigits: 0 })}`
 			: ''
 	);
-
-	const currencyFmt = (amount: number) =>
-		new Intl.NumberFormat('en-NG', { style: 'currency', currency: link.buyCurrency || 'NGN' }).format(amount / 100);
 
 	async function placePreOrder() {
 		if (!buyerEmail || !buyerEmail.includes('@')) {
@@ -70,7 +68,24 @@
 				return;
 			}
 
-			window.location.href = result.url;
+			if (!result.accessCode) {
+				errorMessage = 'Failed to initialize payment. Please try again.';
+				loading = false;
+				return;
+			}
+
+			const { default: PaystackPop } = await import('@paystack/inline-js');
+			const popup = new PaystackPop();
+
+			open = false;
+			loading = false;
+
+			popup.resumeTransaction(result.accessCode, {
+				onSuccess: (transaction: { reference: string }) => {
+					window.location.href = `/${link.slug}?reference=${transaction.reference}`;
+				},
+				onCancel: () => {}
+			});
 		} catch (err) {
 			console.error('Checkout failed:', err);
 			errorMessage = 'Something went wrong. Please try again.';
@@ -214,7 +229,7 @@
 						<span
 							class="size-4 animate-spin rounded-full border-2 border-[#0f172a]/30 border-t-[#0f172a] dark:border-[var(--text)]/30 dark:border-t-[var(--text)]"
 						></span>
-						Redirecting…
+						Processing…
 					{:else}
 						{priceDisplay} · Buy & Listen
 					{/if}
