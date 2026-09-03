@@ -80,7 +80,8 @@
 			open = false;
 			loading = false;
 
-			popup.resumeTransaction(result.accessCode, {
+			popup.checkout({
+				accessCode: result.accessCode,
 				onSuccess: (transaction: { reference: string }) => {
 					window.location.href = `/${link.slug}?reference=${transaction.reference}`;
 				},
