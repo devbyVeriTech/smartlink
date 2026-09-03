@@ -163,6 +163,7 @@ export const links = pgTable(
 		buyPrice: integer('buy_price'), // Price in kobo
 		buyCurrency: text('buy_currency').default('NGN'),
 		buyEnabled: boolean('buy_enabled').default(false),
+		passcodeUsageLimit: integer('passcode_usage_limit'), // null = unlimited; for shared passcodes only
 		sortOrder: integer('sort_order').default(0),
 		isArchived: boolean('is_archived').default(false),
 		createdAt: timestamp('created_at').defaultNow(),
@@ -837,6 +838,28 @@ export const preReleaseAccessLog = pgTable(
 		createdAt: timestamp('created_at').defaultNow()
 	},
 	(table) => [index('pre_release_access_log_link_visitor_idx').on(table.linkId, table.visitorKey)]
+);
+
+export const passcodes = pgTable(
+	'passcodes',
+	{
+		id: text('id').primaryKey(),
+		linkId: text('link_id')
+			.notNull()
+			.references(() => links.id, { onDelete: 'cascade' }),
+		email: text('email'), // null for shared passcodes; set for bought tracks
+		passcode_hash: text('passcode_hash').notNull(),
+		is_used: boolean('is_used').notNull().default(false),
+		used_at: timestamp('used_at'),
+		usage_limit: integer('usage_limit'), // null = unlimited; for shared passcodes
+		current_uses: integer('current_uses').notNull().default(0),
+		created_at: timestamp('created_at').defaultNow(),
+		expires_at: timestamp('expires_at')
+	},
+	(table) => [
+		index('passcodes_link_id_idx').on(table.linkId),
+		index('passcodes_email_idx').on(table.email)
+	]
 );
 
 export const merchProducts = pgTable('merch_products', {

@@ -107,6 +107,7 @@ export interface Link {
 	buyPrice?: number | null;
 	buyCurrency?: string;
 	buyEnabled?: boolean;
+	passcodeUsageLimit?: number | null; // null = unlimited; for shared passcodes only
 	sortOrder?: number;
 	isArchived?: boolean;
 }

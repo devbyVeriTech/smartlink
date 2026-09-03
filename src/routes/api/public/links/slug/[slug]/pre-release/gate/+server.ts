@@ -1,5 +1,6 @@
 import type { RequestHandler } from './$types';
 import { linkService } from '$lib/services/links';
+import { incrementSharedPasscodeUsage } from '$lib/services/passcodes';
 import { createErrorResponse } from '$lib/server/utils/errors';
 import { generateRequestId, logRequest, logResponse } from '$lib/server/middleware/auth';
 import { logger } from '$lib/server/utils/logger';
@@ -8,7 +9,7 @@ import bcrypt from 'bcryptjs';
 import { getVisitorKey, recordPreReleaseAccess } from '$lib/server/utils/pre-release-access';
 import { verifyPasscode } from '$lib/server/utils/pre-release-passcode';
 import { db } from '$lib/server/db';
-import { orders } from '$lib/server/db/schema';
+import { orders, passcodes } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 
 export const POST: RequestHandler = async (event) => {
@@ -30,23 +31,43 @@ export const POST: RequestHandler = async (event) => {
 		const body = await event.request.json();
 		const { email, name, passcode } = body;
 
-		// 0. Pay-to-listen gate — the emailed unique passcode is the ONLY gate.
+		// 0. Pay-to-listen gate — the emailed unique passcode is the ONLY gate,
+		// and it is bound to the purchaser's email (one email per passcode).
 		if (link.buyEnabled) {
 			if (!passcode) {
 				return json({ error: 'Buy this track to receive your passcode by email' }, { status: 401 });
 			}
 
-			const paidOrders = await db
-				.select({ id: orders.id })
-				.from(orders)
-				.where(and(eq(orders.linkId, link.id), eq(orders.status, 'paid')));
+			// Look up the passcode row bound to the submitted email.
+			const passcodeRows = await db
+				.select()
+				.from(passcodes)
+				.where(and(
+					eq(passcodes.linkId, link.id),
+					eq(passcodes.email, email),
+					eq(passcodes.is_used, false)
+				))
+				.limit(1);
 
-			const matched = paidOrders.find((order) => verifyPasscode(order.id, passcode));
-			if (!matched) {
+			const passcodeRow = passcodeRows[0];
+
+			if (!passcodeRow) {
+				return json({ error: 'Incorrect passcode or email mismatch' }, { status: 401 });
+			}
+
+			// Verify the passcode hash against the stored one.
+			const valid = await bcrypt.compare(passcode, passcodeRow.passcode_hash);
+			if (!valid) {
 				return json({ error: 'Incorrect passcode' }, { status: 401 });
 			}
 
-			// Paying fans are never blocked by the unique-listener cap; log purely for stats.
+			// Mark this passcode as used so it cannot be reused.
+			await db
+				.update(passcodes)
+				.set({ is_used: true, used_at: new Date() })
+				.where(eq(passcodes.id, passcodeRow.id));
+
+			// Paid fans are never blocked by the unique-listener cap; log purely for stats.
 			const paidVisitorKey = getVisitorKey(event);
 			await recordPreReleaseAccess({ ...link, maxAccessCount: null }, paidVisitorKey);
 		} else {
@@ -62,6 +83,17 @@ export const POST: RequestHandler = async (event) => {
 				const isMatch = await bcrypt.compare(passcode, link.passwordHash || '');
 				if (!isMatch) {
 					return json({ error: 'Incorrect passcode' }, { status: 401 });
+				}
+
+				// 1a. Shared passcode usage limit check
+				if (link.passcodeUsageLimit !== undefined && link.passcodeUsageLimit !== null) {
+					const usage = await incrementSharedPasscodeUsage(link.id);
+					if (!usage.allowed) {
+						return json(
+							{ error: 'This passcode has reached its usage limit' },
+							{ status: 403 }
+						);
+					}
 				}
 			}
 

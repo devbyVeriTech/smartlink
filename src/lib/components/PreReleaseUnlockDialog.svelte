@@ -56,7 +56,7 @@
 	);
 
 	const showPasscode = $derived(link.requiresPassword || link.buyEnabled);
-	const showEmailCapture = $derived(link.requiresEmailCapture && !link.buyEnabled);
+	const showEmailCapture = $derived(link.requiresEmailCapture || link.buyEnabled);
 	const showLimitOnly = $derived(
 		Boolean(link.maxAccessCount) &&
 			!link.buyEnabled &&

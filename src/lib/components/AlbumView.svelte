@@ -18,6 +18,8 @@
 	import { app } from '$lib/utils/app';
 	import { getPlatformSvg, getPlatformColor } from '$lib/utils/platforms';
 	import PreReleaseUnlockDialog from '$lib/components/PreReleaseUnlockDialog.svelte';
+	import CheckoutModal from '$lib/components/CheckoutModal.svelte';
+	import PurchaseSuccessBanner from '$lib/components/PurchaseSuccessBanner.svelte';
 
 	let {
 		link,
@@ -56,6 +58,8 @@
 	let unlockName = $state('');
 	let unlockError = $state<string | null>(null);
 	let isUnlocking = $state(false);
+	let showCheckoutModal = $state(false);
+	let paymentRef = $state<string | null>(null);
 
 	let artist = $derived(link.artist);
 	let albumTitle = $derived(link.title);
@@ -72,8 +76,8 @@
 	let canDownload = $derived(
 		link.isPreRelease && (link.accessType === 'downloadable' || link.accessType === 'both')
 	);
-	let buyUrl = $derived(
-		link.buyEnabled && link.buyPrice ? `${app.mainUrl}/checkout/link/${link.id}` : null
+	let showBuyButton = $derived(
+		Boolean(link.buyEnabled) && Boolean(link.buyPrice) && link.buyPrice! > 0
 	);
 	let buyDisplay = $derived(
 		link.buyEnabled && link.buyPrice
@@ -547,6 +551,16 @@
 		if (link.isPreRelease && document.cookie.includes(`unlocked_pre_release_${link.id}=true`)) {
 			preReleaseUnlocked = true;
 		}
+
+		const params = new URLSearchParams(window.location.search);
+		const ref = params.get('reference') || params.get('trxref');
+		if (ref) {
+			paymentRef = ref;
+			const url = new URL(window.location.href);
+			url.searchParams.delete('reference');
+			url.searchParams.delete('trxref');
+			history.replaceState(null, '', url.toString());
+		}
 	});
 
 	async function downloadPreRelease() {
@@ -805,6 +819,11 @@
 				{/if}
 
 				{#if link.isPreRelease}
+					{#if paymentRef}
+						<div class="mt-12">
+							<PurchaseSuccessBanner reference={paymentRef} onDismiss={() => (paymentRef = null)} />
+						</div>
+					{/if}
 					<div
 						class="mt-12 rounded-[22px] border border-[var(--teal)]/20 bg-[var(--teal)]/10 p-5 backdrop-blur-xl md:p-6 dark:border-[var(--accent)]/25 dark:bg-[var(--accent)]/10"
 					>
@@ -858,12 +877,11 @@
 								</button>
 							{/if}
 
-							{#if buyUrl}
-								<a
-									href={buyUrl}
-									target="_blank"
-									rel="noopener noreferrer"
-									class="group relative flex w-full items-center justify-between gap-3 rounded-2xl border bg-[var(--teal)] p-4 shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl dark:bg-[var(--accent)] dark:hover:shadow-[var(--accent)]/30"
+							{#if showBuyButton}
+								<button
+									type="button"
+									onclick={() => (showCheckoutModal = true)}
+									class="group relative flex w-full items-center justify-between gap-3 rounded-2xl border bg-[var(--teal)] p-4 shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl dark:bg-[var(--accent)] dark:hover:shadow-[var(--accent)]/30 cursor-pointer"
 								>
 									<span class="flex items-center gap-3">
 										<span
@@ -884,7 +902,7 @@
 										icon={ArrowRight01Icon}
 										className="size-5 text-black dark:text-black"
 									/>
-								</a>
+								</button>
 							{/if}
 
 							{#if link.maxAccessCount}
@@ -894,7 +912,7 @@
 								</p>
 							{/if}
 
-							{#if !canDownload && !buyUrl && !link.maxAccessCount}
+							{#if !canDownload && !showBuyButton && !link.maxAccessCount}
 								<p class="text-xs font-medium text-black/50 dark:text-white/50">
 									Pre-save or pre-order this track to be first in line when it drops.
 								</p>
@@ -966,6 +984,11 @@
 					onUnlock={unlockPreRelease}
 				/>
 			{/if}
+
+			<CheckoutModal
+				bind:open={showCheckoutModal}
+				{link}
+			/>
 		</main>
 
 		<footer

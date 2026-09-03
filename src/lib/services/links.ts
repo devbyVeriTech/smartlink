@@ -80,8 +80,9 @@ export class LinkService {
 			accessCount: dbLink.accessCount ?? 0,
 			buyPrice: dbLink.buyPrice ?? undefined,
 			buyCurrency: dbLink.buyCurrency ?? 'NGN',
-			buyEnabled: dbLink.buyEnabled ?? false,
-			sortOrder: dbLink.sortOrder ?? 0,
+		buyEnabled: dbLink.buyEnabled ?? false,
+		passcodeUsageLimit: dbLink.passcodeUsageLimit ?? undefined,
+		sortOrder: dbLink.sortOrder ?? 0,
 			isArchived: dbLink.isArchived ?? false
 		};
 	}
