@@ -90,7 +90,9 @@
 	let mainArtist = $derived(getMainArtist(artist));
 	let filteredRelatedAlbums = $derived(
 		relatedAlbums.filter(
-			(album: any) => getMainArtist(album.artist).toLowerCase() === mainArtist.toLowerCase() && !album.isPreRelease
+			(album: any) =>
+				getMainArtist(album.artist).toLowerCase() === mainArtist.toLowerCase() &&
+				!album.isPreRelease
 		)
 	);
 
@@ -143,7 +145,8 @@
 		const duration = audio.duration;
 		if (!Number.isFinite(duration) || duration <= 0) return;
 		const now = Date.now();
-		if (now - lastPositionUpdate < 800 && audio.currentTime !== 0 && audio.currentTime !== duration) return;
+		if (now - lastPositionUpdate < 800 && audio.currentTime !== 0 && audio.currentTime !== duration)
+			return;
 		lastPositionUpdate = now;
 		try {
 			ms.setPositionState({
@@ -193,10 +196,7 @@
 					(audio as any).fastSeek(details.seekTime);
 					return;
 				}
-				audio.currentTime = Math.min(
-					Math.max(0, details.seekTime ?? 0),
-					audio.duration
-				);
+				audio.currentTime = Math.min(Math.max(0, details.seekTime ?? 0), audio.duration);
 				updatePositionState();
 			});
 		} catch {}
@@ -457,7 +457,11 @@
 						(navigator.mediaSession as any).playbackState = 'none';
 					} catch {}
 					const ms = navigator.mediaSession as any;
-					if (typeof ms.setPositionState === 'function' && audio && Number.isFinite(audio.duration)) {
+					if (
+						typeof ms.setPositionState === 'function' &&
+						audio &&
+						Number.isFinite(audio.duration)
+					) {
 						try {
 							ms.setPositionState({ duration: audio.duration, playbackRate: 1, position: 0 });
 						} catch {}
@@ -618,7 +622,7 @@
 
 	<div class="relative z-10 flex min-h-screen flex-col">
 		<main
-			class="mx-auto flex w-full max-w-5xl flex-col items-center gap-12 px-6 pt-12 md:flex-row md:items-start md:gap-16"
+			class="mx-auto flex w-full max-w-5xl flex-col items-center gap-8 px-6 pt-12 md:flex-row md:items-start md:gap-16"
 		>
 			<!-- Album Sticky Profile -->
 			<section
@@ -766,66 +770,66 @@
 					{/if}
 					<div class="flex flex-col gap-3">
 						{#each availablePlatforms as platform}
-						<button
-							onclick={() => onPlatformClick(platform.url, platform.name)}
-							class="group relative flex w-full cursor-pointer items-center justify-between rounded-2xl border border-black/5 bg-white/40 p-3 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-black/10 hover:bg-white/60 hover:shadow-[var(--teal)]/10 hover:shadow-xl md:p-4 dark:border-white/5 dark:bg-white/5 dark:hover:border-white/20 dark:hover:bg-white/10 dark:hover:shadow-[var(--accent)]/10 dark:hover:shadow-2xl"
-						>
-							<div class="flex items-center gap-3 md:gap-4">
-								<div
-									class="flex h-10 w-10 items-center justify-center rounded-[14px] shadow-lg transition-transform duration-300 group-hover:scale-110 md:h-12 md:w-12"
-									style="background: {getPlatformColor(platform.name)}"
-								>
-									{#if getPlatformSvg(platform.name)}
-										<img
-											src={getPlatformSvg(platform.name)}
-											alt={platform.name}
-											class="size-5 shrink-0 drop-shadow-md md:size-6"
-										/>
-									{:else}
-										<span
-											class="flex size-5 items-center justify-center text-xs font-bold text-white drop-shadow-md md:size-6"
+							<button
+								onclick={() => onPlatformClick(platform.url, platform.name)}
+								class="group relative flex w-full cursor-pointer items-center justify-between rounded-2xl border border-black/5 bg-white/40 p-3 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-black/10 hover:bg-white/60 hover:shadow-[var(--teal)]/10 hover:shadow-xl md:p-4 dark:border-white/5 dark:bg-white/5 dark:hover:border-white/20 dark:hover:bg-white/10 dark:hover:shadow-[var(--accent)]/10 dark:hover:shadow-2xl"
+							>
+								<div class="flex items-center gap-3 md:gap-4">
+									<div
+										class="flex h-10 w-10 items-center justify-center rounded-[14px] shadow-lg transition-transform duration-300 group-hover:scale-110 md:h-12 md:w-12"
+										style="background: {getPlatformColor(platform.name)}"
+									>
+										{#if getPlatformSvg(platform.name)}
+											<img
+												src={getPlatformSvg(platform.name)}
+												alt={platform.name}
+												class="size-5 shrink-0 drop-shadow-md md:size-6"
+											/>
+										{:else}
+											<span
+												class="flex size-5 items-center justify-center text-xs font-bold text-white drop-shadow-md md:size-6"
+											>
+												{platform.name.slice(0, 2).toUpperCase()}
+											</span>
+										{/if}
+									</div>
+									<span
+										class="text-base font-bold text-black/80 drop-shadow-sm transition-colors duration-500 group-hover:text-black md:text-lg dark:text-white/90 dark:group-hover:text-white"
+									>
+										{platform.name}
+									</span>
+								</div>
+
+								<div class="pr-1 md:pr-2">
+									{#if clickedNames.includes(platform.name)}
+										<Badge
+											class="border-black/5 bg-black/5 text-[9px] font-bold tracking-widest text-black/60 uppercase backdrop-blur-md dark:border-white/10 dark:bg-white/20 dark:text-white"
+											>Opened</Badge
 										>
-											{platform.name.slice(0, 2).toUpperCase()}
-										</span>
+									{:else}
+										<div
+											class="flex h-7 w-7 items-center justify-center rounded-full bg-black/5 transition-colors group-hover:bg-black/10 md:h-8 md:w-8 dark:bg-white/5 dark:group-hover:bg-white/20"
+										>
+											<HugeiconsIcon
+												icon={ExternalLink}
+												className="size-3.5 md:size-4 text-black/40 dark:text-white/60 group-hover:text-black/80 dark:group-hover:text-white"
+											/>
+										</div>
 									{/if}
 								</div>
-								<span
-									class="text-base font-bold text-black/80 drop-shadow-sm transition-colors duration-500 group-hover:text-black md:text-lg dark:text-white/90 dark:group-hover:text-white"
-								>
-									{platform.name}
-								</span>
-							</div>
-
-							<div class="pr-1 md:pr-2">
-								{#if clickedNames.includes(platform.name)}
-									<Badge
-										class="border-black/5 bg-black/5 text-[9px] font-bold tracking-widest text-black/60 uppercase backdrop-blur-md dark:border-white/10 dark:bg-white/20 dark:text-white"
-										>Opened</Badge
-									>
-								{:else}
-									<div
-										class="flex h-7 w-7 items-center justify-center rounded-full bg-black/5 transition-colors group-hover:bg-black/10 md:h-8 md:w-8 dark:bg-white/5 dark:group-hover:bg-white/20"
-									>
-										<HugeiconsIcon
-											icon={ExternalLink}
-											className="size-3.5 md:size-4 text-black/40 dark:text-white/60 group-hover:text-black/80 dark:group-hover:text-white"
-										/>
-									</div>
-								{/if}
-							</div>
-						</button>
-					{/each}
-				</div>
+							</button>
+						{/each}
+					</div>
 				{/if}
 
 				{#if link.isPreRelease}
 					{#if paymentRef}
-						<div class="mt-12">
+						<div class="mt-0 mb-8">
 							<PurchaseSuccessBanner reference={paymentRef} onDismiss={() => (paymentRef = null)} />
 						</div>
 					{/if}
 					<div
-						class="mt-12 rounded-[22px] border border-[var(--teal)]/20 bg-[var(--teal)]/10 p-5 backdrop-blur-xl md:p-6 dark:border-[var(--accent)]/25 dark:bg-[var(--accent)]/10"
+						class="mt-0 rounded-[22px] border border-[var(--teal)]/20 bg-[var(--teal)]/10 p-5 backdrop-blur-xl md:p-6 dark:border-[var(--accent)]/25 dark:bg-[var(--accent)]/10"
 					>
 						<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
 							<h3
@@ -881,7 +885,7 @@
 								<button
 									type="button"
 									onclick={() => (showCheckoutModal = true)}
-									class="group relative flex w-full items-center justify-between gap-3 rounded-2xl border bg-[var(--teal)] p-4 shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl dark:bg-[var(--accent)] dark:hover:shadow-[var(--accent)]/30 cursor-pointer"
+									class="group relative flex w-full cursor-pointer items-center justify-between gap-3 rounded-2xl border bg-[var(--teal)] p-4 shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl dark:bg-[var(--accent)] dark:hover:shadow-[var(--accent)]/30"
 								>
 									<span class="flex items-center gap-3">
 										<span
@@ -985,10 +989,7 @@
 				/>
 			{/if}
 
-			<CheckoutModal
-				bind:open={showCheckoutModal}
-				{link}
-			/>
+			<CheckoutModal bind:open={showCheckoutModal} {link} />
 		</main>
 
 		<footer
