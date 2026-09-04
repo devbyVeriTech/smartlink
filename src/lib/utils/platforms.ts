@@ -12,7 +12,9 @@ import Boomplay from '$lib/assets/svgs/boomplay.svg';
 import Anghami from '$lib/assets/svgs/anghami.svg';
 import Audiomack from '$lib/assets/svgs/audiomackIcon.svg';
 import Napster from '$lib/assets/svgs/napsterIcon.svg';
+import Yandex from '$lib/assets/svgs/yandexIcon.svg';
 import Bandcamp from '$lib/assets/svgs/bandcampIcon.svg';
+import IHeart from '$lib/assets/svgs/iHeartRadioIcon.svg';
 
 export type PlatformInfo = {
 	svg: string | null;
@@ -24,7 +26,7 @@ const svgMap: Record<string, string> = {
 	'apple music': AppleMusic,
 	apple: Apple,
 	youtube: Youtube,
-	'youtube music': Youtube,
+	'youtube music': YoutubeMusic,
 	soundcloud: SoundCloud,
 	deezer: Deezer,
 	tidal: Tidal,
@@ -36,7 +38,10 @@ const svgMap: Record<string, string> = {
 	boomplay: Boomplay,
 	youtubemusic: YoutubeMusic,
 	napster: Napster,
-	bandcamp: Bandcamp
+	bandcamp: Bandcamp,
+	yandex: Yandex,
+	itunes: Apple,
+	iheartradio: IHeart
 };
 
 const colorMap: Record<string, string> = {
@@ -57,7 +62,10 @@ const colorMap: Record<string, string> = {
 	napster: '#5db8f6',
 	anghami: '#f300f9',
 	boomplay: '#0052ff',
-	musicbed: '#E60000'
+	musicbed: '#E60000',
+	yandex: '#ffbc0d',
+	itunes: '#F9425D',
+	iheartradio: '#c6002b'
 };
 
 export const KNOWN_PLATFORMS = [
@@ -69,7 +77,7 @@ export const KNOWN_PLATFORMS = [
 		color: colorMap['apple music']
 	},
 	{ name: 'YouTube', key: 'youtube', svg: svgMap.youtube, color: colorMap.youtube },
-	{ name: 'YouTube Music', key: 'ytmusic', svg: svgMap.youtube, color: colorMap['youtube music'] },
+	{ name: 'YouTube Music', key: 'ytmusic', svg: svgMap.youtubemusic, color: colorMap['youtube music'] },
 	{ name: 'SoundCloud', key: 'soundcloud', svg: svgMap.soundcloud, color: colorMap.soundcloud },
 	{ name: 'Deezer', key: 'deezer', svg: svgMap.deezer, color: colorMap.deezer },
 	{ name: 'Tidal', key: 'tidal', svg: svgMap.tidal, color: colorMap.tidal },
@@ -86,6 +94,9 @@ export const KNOWN_PLATFORMS = [
 	{ name: 'Napster', key: 'napster', svg: null, color: colorMap.napster },
 	{ name: 'Anghami', key: 'anghami', svg: null, color: colorMap.anghami },
 	{ name: 'Boomplay', key: 'boomplay', svg: null, color: colorMap.boomplay },
+	{ name: 'Yandex', key: 'yandex', svg: null, color: colorMap.yandex },
+	{ name: 'Itunes', key: 'itunes', svg: null, color: colorMap.itunes },
+	{ name: 'iHeartRadio', key: 'iheartradio', svg: null, color: colorMap.iheartradio },
 	{ name: 'Musicbed', key: 'musicbed', svg: null, color: colorMap.musicbed }
 ];
 
@@ -115,5 +126,8 @@ export function getPlatformBgClass(name: string): string {
 	if (key.includes('napster')) return 'bg-black';
 	if (key.includes('anghami')) return 'bg-[#E3539B]';
 	if (key.includes('boomplay')) return 'bg-[#4CAF50]';
+	if (key.includes('itunes')) return 'bg-[#F9425D]';
+	if (key.includes('yandex')) return 'bg-[#ffbc0d]';
+	if (key.includes('iheartradio')) return 'bg-[#c6002b]';
 	return 'bg-[#6B7280]';
 }
