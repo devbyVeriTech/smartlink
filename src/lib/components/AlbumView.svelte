@@ -1013,7 +1013,7 @@
 												</div>
 											</button>
 											{#if presavePlatform === platform.name && !presavedPlatforms.includes(platform.name)}
-												<div class="mt-2 ml-4 overflow-hidden rounded-xl border border-black/5 bg-white/60 p-4 backdrop-blur-xl dark:border-white/10 dark:bg-white/5">
+												<div class="mt-2 overflow-hidden rounded-xl border border-black/5 bg-white/60 p-4 backdrop-blur-xl dark:border-white/10 dark:bg-white/5">
 													{#if presaveDone}
 														<p class="text-sm font-medium text-green-600 dark:text-green-400">
 															You'll be notified when this track drops!
