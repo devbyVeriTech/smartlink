@@ -61,6 +61,12 @@
 	let showCheckoutModal = $state(false);
 	let paymentRef = $state<string | null>(null);
 
+	let presavePlatform = $state('');
+	let presaveEmail = $state('');
+	let presaveSubmitting = $state(false);
+	let presaveDone = $state(false);
+	let presavedPlatforms = $state<string[]>([]);
+
 	let artist = $derived(link.artist);
 	let albumTitle = $derived(link.title);
 	let coverUrl = $derived(link.artwork);
@@ -567,6 +573,45 @@
 		}
 	});
 
+	function openPresave(platformName: string) {
+		if (presavedPlatforms.includes(platformName)) return;
+		presavePlatform = platformName;
+		presaveEmail = '';
+		presaveDone = false;
+	}
+
+	function closePresave() {
+		presavePlatform = '';
+		presaveEmail = '';
+		presaveDone = false;
+	}
+
+	async function submitPresave() {
+		if (!presaveEmail || !presaveEmail.includes('@')) {
+			toast.error('Please enter a valid email');
+			return;
+		}
+		presaveSubmitting = true;
+		try {
+			const res = await fetch(`/api/public/links/${link.slug}/presave`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ email: presaveEmail })
+			});
+			if (!res.ok) {
+				const data = await res.json();
+				throw new Error(data.error || 'Failed to save');
+			}
+			presavedPlatforms = [...presavedPlatforms, presavePlatform];
+			presaveDone = true;
+			toast.success(`You'll be notified when ${presavePlatform} pre-save is live!`);
+		} catch (e: any) {
+			toast.error(e.message || 'Something went wrong');
+		} finally {
+			presaveSubmitting = false;
+		}
+	}
+
 	async function downloadPreRelease() {
 		if (linkNeedsGate && !preReleaseUnlocked) {
 			showUnlockModal = true;
@@ -757,7 +802,7 @@
 			</section>
 
 			<section class="flex w-full max-w-lg min-w-0 flex-1 flex-col md:flex-grow">
-				{#if !link.isPreRelease || availablePlatforms.length > 0}
+				{#if !link.isPreRelease || (link.showPlatforms && availablePlatforms.length > 0)}
 					<h3
 						class="mb-6 pl-2 text-lg font-bold tracking-widest text-black/80 uppercase drop-shadow-sm transition-colors duration-500 dark:text-white/90 dark:drop-shadow-md"
 					>
@@ -765,59 +810,151 @@
 					</h3>
 					{#if link.isPreRelease && availablePlatforms.length > 0}
 						<p class="mb-4 pl-2 text-sm text-black/60 dark:text-white/70">
-							Fans can pre-save on Spotify and Apple Music while this track remains unreleased.
+							Fans can pre-save to get notified when this track drops.
 						</p>
 					{/if}
 					<div class="flex flex-col gap-3">
 						{#each availablePlatforms as platform}
-							<button
-								onclick={() => onPlatformClick(platform.url, platform.name)}
-								class="group relative flex w-full cursor-pointer items-center justify-between rounded-2xl border border-black/5 bg-white/40 p-3 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-black/10 hover:bg-white/60 hover:shadow-[var(--teal)]/10 hover:shadow-xl md:p-4 dark:border-white/5 dark:bg-white/5 dark:hover:border-white/20 dark:hover:bg-white/10 dark:hover:shadow-[var(--accent)]/10 dark:hover:shadow-2xl"
-							>
-								<div class="flex items-center gap-3 md:gap-4">
-									<div
-										class="flex h-10 w-10 items-center justify-center rounded-[14px] shadow-lg transition-transform duration-300 group-hover:scale-110 md:h-12 md:w-12"
-										style="background: {getPlatformColor(platform.name)}"
+							{#if link.isPreRelease && link.showPlatforms}
+								<div>
+									<button
+										onclick={() => openPresave(platform.name)}
+										disabled={presavedPlatforms.includes(platform.name)}
+										class="group relative flex w-full cursor-pointer items-center justify-between rounded-2xl border border-black/5 bg-white/40 p-3 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-black/10 hover:bg-white/60 hover:shadow-[var(--teal)]/10 hover:shadow-xl disabled:cursor-default disabled:hover:translate-y-0 disabled:hover:shadow-none md:p-4 dark:border-white/5 dark:bg-white/5 dark:hover:border-white/20 dark:hover:bg-white/10 dark:hover:shadow-[var(--accent)]/10 dark:hover:shadow-2xl dark:disabled:hover:bg-white/5"
 									>
-										{#if getPlatformSvg(platform.name)}
-											<img
-												src={getPlatformSvg(platform.name)}
-												alt={platform.name}
-												class="size-5 shrink-0 drop-shadow-md md:size-6"
-											/>
-										{:else}
-											<span
-												class="flex size-5 items-center justify-center text-xs font-bold text-white drop-shadow-md md:size-6"
+										<div class="flex items-center gap-3 md:gap-4">
+											<div
+												class="flex h-10 w-10 items-center justify-center rounded-[14px] shadow-lg transition-transform duration-300 group-hover:scale-110 md:h-12 md:w-12"
+												style="background: {getPlatformColor(platform.name)}"
 											>
-												{platform.name.slice(0, 2).toUpperCase()}
+												{#if getPlatformSvg(platform.name)}
+													<img
+														src={getPlatformSvg(platform.name)}
+														alt={platform.name}
+														class="size-5 shrink-0 drop-shadow-md md:size-6"
+													/>
+												{:else}
+													<span
+														class="flex size-5 items-center justify-center text-xs font-bold text-white drop-shadow-md md:size-6"
+													>
+														{platform.name.slice(0, 2).toUpperCase()}
+													</span>
+												{/if}
+											</div>
+											<span
+												class="text-base font-bold text-black/80 drop-shadow-sm transition-colors duration-500 group-hover:text-black md:text-lg dark:text-white/90 dark:group-hover:text-white"
+											>
+												{platform.name}
 											</span>
-										{/if}
-									</div>
-									<span
-										class="text-base font-bold text-black/80 drop-shadow-sm transition-colors duration-500 group-hover:text-black md:text-lg dark:text-white/90 dark:group-hover:text-white"
-									>
-										{platform.name}
-									</span>
-								</div>
+										</div>
 
-								<div class="pr-1 md:pr-2">
-									{#if clickedNames.includes(platform.name)}
-										<Badge
-											class="border-black/5 bg-black/5 text-[9px] font-bold tracking-widest text-black/60 uppercase backdrop-blur-md dark:border-white/10 dark:bg-white/20 dark:text-white"
-											>Opened</Badge
-										>
-									{:else}
-										<div
-											class="flex h-7 w-7 items-center justify-center rounded-full bg-black/5 transition-colors group-hover:bg-black/10 md:h-8 md:w-8 dark:bg-white/5 dark:group-hover:bg-white/20"
-										>
-											<HugeiconsIcon
-												icon={ExternalLink}
-												className="size-3.5 md:size-4 text-black/40 dark:text-white/60 group-hover:text-black/80 dark:group-hover:text-white"
-											/>
+										<div class="pr-1 md:pr-2">
+											{#if presavedPlatforms.includes(platform.name)}
+												<Badge
+													class="border-green-500/20 bg-green-500/10 text-[9px] font-bold tracking-widest text-green-600 uppercase backdrop-blur-md dark:border-green-400/20 dark:bg-green-400/10 dark:text-green-400"
+													>Pre-saved</Badge
+												>
+											{:else}
+												<Badge
+													class="border-[var(--teal)]/20 bg-[var(--teal)]/10 text-[9px] font-bold tracking-widest text-[var(--teal)] uppercase backdrop-blur-md dark:border-[var(--accent)]/20 dark:bg-[var(--accent)]/10 dark:text-[var(--accent)]"
+													>Pre-save</Badge
+												>
+											{/if}
+										</div>
+									</button>
+									{#if presavePlatform === platform.name && !presavedPlatforms.includes(platform.name)}
+										<div class="mt-2 ml-4 overflow-hidden rounded-xl border border-black/5 bg-white/60 p-4 backdrop-blur-xl dark:border-white/10 dark:bg-white/5">
+											{#if presaveDone}
+												<p class="text-sm font-medium text-green-600 dark:text-green-400">
+													You'll be notified when this track drops!
+												</p>
+											{:else}
+												<p class="mb-2 text-xs font-medium text-black/60 dark:text-white/70">
+													Get notified on {platform.name} when this track drops:
+												</p>
+												<div class="flex gap-2">
+													<input
+														type="email"
+														placeholder="your@email.com"
+														bind:value={presaveEmail}
+														onkeydown={(e) => { if (e.key === 'Enter') submitPresave(); }}
+														class="flex-1 rounded-lg border border-black/10 bg-white/80 px-3 py-2 text-sm text-black placeholder:text-black/30 focus:border-[var(--teal)] focus:outline-none focus:ring-1 focus:ring-[var(--teal)]/30 dark:border-white/10 dark:bg-white/10 dark:text-white dark:placeholder:text-white/30 dark:focus:border-[var(--accent)] dark:focus:ring-[var(--accent)]/30"
+													/>
+													<button
+														onclick={submitPresave}
+														disabled={presaveSubmitting || !presaveEmail}
+														class="rounded-lg bg-[var(--teal)] px-4 py-2 text-sm font-bold text-[#0f172a] transition-colors hover:bg-[var(--teal)]/80 disabled:opacity-50 dark:bg-[var(--accent)] dark:text-[var(--text)] dark:hover:bg-[var(--accent)]/80"
+													>
+														{#if presaveSubmitting}
+															<svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24">
+																<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" />
+																<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+															</svg>
+														{:else}
+															Notify me
+														{/if}
+													</button>
+													<button
+														onclick={closePresave}
+														class="rounded-lg px-3 py-2 text-sm text-black/40 transition-colors hover:text-black/70 dark:text-white/40 dark:hover:text-white/70"
+													>
+														Close
+													</button>
+												</div>
+											{/if}
 										</div>
 									{/if}
 								</div>
-							</button>
+							{:else}
+								<button
+									onclick={() => onPlatformClick(platform.url, platform.name)}
+									class="group relative flex w-full cursor-pointer items-center justify-between rounded-2xl border border-black/5 bg-white/40 p-3 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-black/10 hover:bg-white/60 hover:shadow-[var(--teal)]/10 hover:shadow-xl md:p-4 dark:border-white/5 dark:bg-white/5 dark:hover:border-white/20 dark:hover:bg-white/10 dark:hover:shadow-[var(--accent)]/10 dark:hover:shadow-2xl"
+								>
+									<div class="flex items-center gap-3 md:gap-4">
+										<div
+											class="flex h-10 w-10 items-center justify-center rounded-[14px] shadow-lg transition-transform duration-300 group-hover:scale-110 md:h-12 md:w-12"
+											style="background: {getPlatformColor(platform.name)}"
+										>
+											{#if getPlatformSvg(platform.name)}
+												<img
+													src={getPlatformSvg(platform.name)}
+													alt={platform.name}
+													class="size-5 shrink-0 drop-shadow-md md:size-6"
+												/>
+											{:else}
+												<span
+													class="flex size-5 items-center justify-center text-xs font-bold text-white drop-shadow-md md:size-6"
+												>
+													{platform.name.slice(0, 2).toUpperCase()}
+												</span>
+											{/if}
+										</div>
+										<span
+											class="text-base font-bold text-black/80 drop-shadow-sm transition-colors duration-500 group-hover:text-black md:text-lg dark:text-white/90 dark:group-hover:text-white"
+										>
+											{platform.name}
+										</span>
+									</div>
+
+									<div class="pr-1 md:pr-2">
+										{#if clickedNames.includes(platform.name)}
+											<Badge
+												class="border-black/5 bg-black/5 text-[9px] font-bold tracking-widest text-black/60 uppercase backdrop-blur-md dark:border-white/10 dark:bg-white/20 dark:text-white"
+												>Opened</Badge
+											>
+										{:else}
+											<div
+												class="flex h-7 w-7 items-center justify-center rounded-full bg-black/5 transition-colors group-hover:bg-black/10 md:h-8 md:w-8 dark:bg-white/5 dark:group-hover:bg-white/20"
+											>
+												<HugeiconsIcon
+													icon={ExternalLink}
+													className="size-3.5 md:size-4 text-black/40 dark:text-white/60 group-hover:text-black/80 dark:group-hover:text-white"
+												/>
+											</div>
+										{/if}
+									</div>
+								</button>
+							{/if}
 						{/each}
 					</div>
 				{/if}

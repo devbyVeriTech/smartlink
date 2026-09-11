@@ -166,6 +166,7 @@ export const links = pgTable(
 		passcodeUsageLimit: integer('passcode_usage_limit'), // null = unlimited; for shared passcodes only
 		sortOrder: integer('sort_order').default(0),
 		isArchived: boolean('is_archived').default(false),
+		showPlatforms: boolean('show_platforms').default(false),
 		createdAt: timestamp('created_at').defaultNow(),
 		updatedAt: timestamp('updated_at').defaultNow()
 	},

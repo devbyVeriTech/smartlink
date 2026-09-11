@@ -110,4 +110,5 @@ export interface Link {
 	passcodeUsageLimit?: number | null; // null = unlimited; for shared passcodes only
 	sortOrder?: number;
 	isArchived?: boolean;
+	showPlatforms?: boolean;
 }

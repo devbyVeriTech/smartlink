@@ -83,8 +83,9 @@ export class LinkService {
 		buyEnabled: dbLink.buyEnabled ?? false,
 		passcodeUsageLimit: dbLink.passcodeUsageLimit ?? undefined,
 		sortOrder: dbLink.sortOrder ?? 0,
-			isArchived: dbLink.isArchived ?? false
-		};
+		isArchived: dbLink.isArchived ?? false,
+		showPlatforms: dbLink.showPlatforms ?? false
+	};
 	}
 
 	async capturePreReleaseEmail(linkId: string, email: string, name?: string): Promise<void> {
