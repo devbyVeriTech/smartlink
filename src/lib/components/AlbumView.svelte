@@ -575,9 +575,15 @@
 
 	function openPresave(platformName: string) {
 		if (presavedPlatforms.includes(platformName)) return;
-		presavePlatform = platformName;
-		presaveEmail = '';
-		presaveDone = false;
+		if (presavePlatform === platformName) {
+			presavePlatform = '';
+			presaveEmail = '';
+			presaveDone = false;
+		} else {
+			presavePlatform = platformName;
+			presaveEmail = '';
+			presaveDone = false;
+		}
 	}
 
 	function closePresave() {
@@ -1048,7 +1054,7 @@
 															</div>
 															<button
 																onclick={closePresave}
-																class="self-start rounded-lg px-3 py-1.5 text-xs text-black/40 transition-colors hover:text-black/70 dark:text-white/40 dark:hover:text-white/70"
+																class="self-end rounded-lg px-3 py-1.5 text-xs text-black/40 transition-colors hover:text-black/70 dark:text-white/40 dark:hover:text-white/70"
 															>
 																Close
 															</button>
