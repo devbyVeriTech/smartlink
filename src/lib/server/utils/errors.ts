@@ -47,7 +47,7 @@ export class PaymentError extends AppError {
 	}
 }
 
-export function handleApiError(error: any): { error: string; statusCode: number } {
+export function handleApiError(error: unknown): { error: string; statusCode: number } {
 	if (error instanceof AppError) {
 		return {
 			error: error.message,
@@ -64,10 +64,23 @@ export function handleApiError(error: any): { error: string; statusCode: number 
 	};
 }
 
-export function createErrorResponse(error: any, status?: number) {
+export function createErrorResponse(error: unknown, status?: number) {
 	const { error: message, statusCode } = handleApiError(error);
 	return {
 		error: message,
 		status: status || statusCode
 	};
+}
+
+/** Extracts a numeric `statusCode` from thrown values (SvelteKit `error()`, AppError, …). */
+export function getErrorStatusCode(error: unknown): number {
+	if (
+		typeof error === 'object' &&
+		error !== null &&
+		'statusCode' in error &&
+		typeof error.statusCode === 'number'
+	) {
+		return error.statusCode;
+	}
+	return 500;
 }

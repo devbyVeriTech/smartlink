@@ -1,6 +1,6 @@
 import { env } from '$env/dynamic/public';
 
-export let app = {
+export const app = {
 	name: 'Xoniq',
 	slogan: 'Share Your Music',
 	logo: '/uploads/logos/favico.webp',

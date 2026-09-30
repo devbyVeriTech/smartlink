@@ -1,13 +1,12 @@
 import type { RequestHandler } from './$types';
 import { linkService } from '$lib/services/links';
 import { incrementSharedPasscodeUsage } from '$lib/services/passcodes';
-import { createErrorResponse } from '$lib/server/utils/errors';
+import { createErrorResponse, getErrorStatusCode } from '$lib/server/utils/errors';
 import { generateRequestId, logRequest, logResponse } from '$lib/server/middleware/auth';
 import { logger } from '$lib/server/utils/logger';
 import { json } from '@sveltejs/kit';
 import bcrypt from 'bcryptjs';
 import { getVisitorKey, recordPreReleaseAccess } from '$lib/server/utils/pre-release-access';
-import { verifyPasscode } from '$lib/server/utils/pre-release-passcode';
 import { db } from '$lib/server/db';
 import { passcodes } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
@@ -42,11 +41,13 @@ export const POST: RequestHandler = async (event) => {
 			const passcodeRows = await db
 				.select()
 				.from(passcodes)
-				.where(and(
-					eq(passcodes.linkId, link.id),
-					eq(passcodes.email, email),
-					eq(passcodes.is_used, false)
-				))
+				.where(
+					and(
+						eq(passcodes.linkId, link.id),
+						eq(passcodes.email, email),
+						eq(passcodes.is_used, false)
+					)
+				)
 				.limit(1);
 
 			const passcodeRow = passcodeRows[0];
@@ -83,10 +84,7 @@ export const POST: RequestHandler = async (event) => {
 				if (link.passcodeUsageLimit !== undefined && link.passcodeUsageLimit !== null) {
 					const usage = await incrementSharedPasscodeUsage(link.id);
 					if (!usage.allowed) {
-						return json(
-							{ error: 'This passcode has reached its usage limit' },
-							{ status: 403 }
-						);
+						return json({ error: 'This passcode has reached its usage limit' }, { status: 403 });
 					}
 				}
 			}
@@ -126,9 +124,9 @@ export const POST: RequestHandler = async (event) => {
 		logResponse(event, 200);
 
 		return json({ success: true });
-	} catch (error: any) {
+	} catch (error) {
 		console.error('[PreReleaseGate] Error unlocking pre-release link:', error);
-		logResponse(event, error?.statusCode || 500);
+		logResponse(event, getErrorStatusCode(error));
 		const { error: message, status } = createErrorResponse(error);
 		return json({ error: message }, { status });
 	}

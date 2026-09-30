@@ -3,18 +3,19 @@ import { linkService } from '$lib/services/links';
 import { analyticsService } from '$lib/services/analytics';
 import { error, redirect } from '@sveltejs/kit';
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- placeholder: `ip` will be used once real geolocation is integrated
 async function getCountryFromIP(ip: string): Promise<string | undefined> {
 	try {
 		// In production, you'd use a proper IP geolocation service
 		return undefined;
-	} catch (error) {
+	} catch {
 		return undefined;
 	}
 }
 
 function detectDeviceType(userAgent: string | undefined): string {
 	if (!userAgent) return 'other';
-	
+
 	const ua = userAgent.toLowerCase();
 	if (ua.includes('mobile') || ua.includes('android') || ua.includes('iphone')) {
 		return 'mobile';
@@ -27,7 +28,7 @@ function detectDeviceType(userAgent: string | undefined): string {
 
 function detectBrowser(userAgent: string | undefined): string {
 	if (!userAgent) return 'other';
-	
+
 	const ua = userAgent.toLowerCase();
 	if (ua.includes('chrome')) return 'chrome';
 	if (ua.includes('firefox')) return 'firefox';
@@ -75,43 +76,59 @@ export const GET: RequestHandler = async ({ params, request, getClientAddress, u
 			streamingPlatform = 'deezer';
 			// Check additional platforms for Deezer
 			if (link.additionalPlatforms) {
-				const deezerPlatform = (link.additionalPlatforms as any[])?.find(p => p.name.toLowerCase() === 'deezer');
+				const deezerPlatform = (
+					link.additionalPlatforms as Array<{ name: string; url: string }>
+				)?.find((p) => p.name.toLowerCase() === 'deezer');
 				redirectUrl = requestedUrl || deezerPlatform?.url || link.url;
 			}
 		} else if (pathname.includes('/tidal')) {
 			streamingPlatform = 'tidal';
 			if (link.additionalPlatforms) {
-				const tidalPlatform = (link.additionalPlatforms as any[])?.find(p => p.name.toLowerCase() === 'tidal');
+				const tidalPlatform = (
+					link.additionalPlatforms as Array<{ name: string; url: string }>
+				)?.find((p) => p.name.toLowerCase() === 'tidal');
 				redirectUrl = requestedUrl || tidalPlatform?.url || link.url;
 			}
 		} else if (pathname.includes('/audiomack')) {
 			streamingPlatform = 'audiomack';
 			if (link.additionalPlatforms) {
-				const audiomackPlatform = (link.additionalPlatforms as any[])?.find(p => p.name.toLowerCase() === 'audiomack');
+				const audiomackPlatform = (
+					link.additionalPlatforms as Array<{ name: string; url: string }>
+				)?.find((p) => p.name.toLowerCase() === 'audiomack');
 				redirectUrl = requestedUrl || audiomackPlatform?.url || link.url;
 			}
 		} else if (pathname.includes('/bandcamp')) {
 			streamingPlatform = 'bandcamp';
 			if (link.additionalPlatforms) {
-				const bandcampPlatform = (link.additionalPlatforms as any[])?.find(p => p.name.toLowerCase() === 'bandcamp');
+				const bandcampPlatform = (
+					link.additionalPlatforms as Array<{ name: string; url: string }>
+				)?.find((p) => p.name.toLowerCase() === 'bandcamp');
 				redirectUrl = requestedUrl || bandcampPlatform?.url || link.url;
 			}
 		} else if (pathname.includes('/amazon-music')) {
 			streamingPlatform = 'amazon_music';
 			if (link.additionalPlatforms) {
-				const amazonMusicPlatform = (link.additionalPlatforms as any[])?.find(p => p.name.toLowerCase() === 'amazon-music' || p.name.toLowerCase() === 'amazon music');
+				const amazonMusicPlatform = (
+					link.additionalPlatforms as Array<{ name: string; url: string }>
+				)?.find(
+					(p) => p.name.toLowerCase() === 'amazon-music' || p.name.toLowerCase() === 'amazon music'
+				);
 				redirectUrl = requestedUrl || amazonMusicPlatform?.url || link.url;
 			}
 		} else if (pathname.includes('/beatport')) {
 			streamingPlatform = 'beatport';
 			if (link.additionalPlatforms) {
-				const beatportPlatform = (link.additionalPlatforms as any[])?.find(p => p.name.toLowerCase() === 'beatport');
+				const beatportPlatform = (
+					link.additionalPlatforms as Array<{ name: string; url: string }>
+				)?.find((p) => p.name.toLowerCase() === 'beatport');
 				redirectUrl = requestedUrl || beatportPlatform?.url || link.url;
 			}
 		} else if (pathname.includes('/musicbed')) {
 			streamingPlatform = 'musicbed';
 			if (link.additionalPlatforms) {
-				const musicbedPlatform = (link.additionalPlatforms as any[])?.find(p => p.name.toLowerCase() === 'musicbed');
+				const musicbedPlatform = (
+					link.additionalPlatforms as Array<{ name: string; url: string }>
+				)?.find((p) => p.name.toLowerCase() === 'musicbed');
 				redirectUrl = requestedUrl || musicbedPlatform?.url || link.url;
 			}
 		} else {

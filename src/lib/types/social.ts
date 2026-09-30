@@ -44,7 +44,7 @@ export interface Activity {
 	userId: string;
 	type: 'link_created' | 'profile_updated' | 'followed_user';
 	content: string;
-	metadata?: Record<string, any>;
+	metadata?: Record<string, unknown>;
 	createdAt: Date;
 	user?: User;
 }
@@ -93,6 +93,7 @@ export interface Link {
 	// Pre-release fields
 	upc?: string | null;
 	isrc?: string | null;
+	platformsResolvedAt?: Date | null;
 	isPreRelease?: boolean;
 	requiresPassword?: boolean;
 	requiresEmailCapture?: boolean;

@@ -37,7 +37,7 @@ export const POST: RequestHandler = async (event) => {
 
 		logResponse(event, 200);
 		return json({ success: true });
-	} catch (error: any) {
+	} catch (error) {
 		console.error('[presave] Error:', error);
 		logResponse(event, 500);
 		return json({ error: 'Failed to save email' }, { status: 500 });

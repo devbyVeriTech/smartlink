@@ -6,7 +6,7 @@ interface LogEntry {
 	message: string;
 	userId?: string;
 	requestId?: string;
-	metadata?: Record<string, any>;
+	metadata?: Record<string, unknown>;
 }
 
 class Logger {
@@ -27,7 +27,7 @@ class Logger {
 	private log(
 		level: LogLevel,
 		message: string,
-		metadata?: Record<string, any>,
+		metadata?: Record<string, unknown>,
 		userId?: string,
 		requestId?: string
 	): void {
@@ -72,24 +72,34 @@ class Logger {
 
 	debug(
 		message: string,
-		metadata?: Record<string, any>,
+		metadata?: Record<string, unknown>,
 		userId?: string,
 		requestId?: string
 	): void {
 		this.log('debug', message, metadata, userId, requestId);
 	}
 
-	info(message: string, metadata?: Record<string, any>, userId?: string, requestId?: string): void {
+	info(
+		message: string,
+		metadata?: Record<string, unknown>,
+		userId?: string,
+		requestId?: string
+	): void {
 		this.log('info', message, metadata, userId, requestId);
 	}
 
-	warn(message: string, metadata?: Record<string, any>, userId?: string, requestId?: string): void {
+	warn(
+		message: string,
+		metadata?: Record<string, unknown>,
+		userId?: string,
+		requestId?: string
+	): void {
 		this.log('warn', message, metadata, userId, requestId);
 	}
 
 	error(
 		message: string,
-		metadata?: Record<string, any>,
+		metadata?: Record<string, unknown>,
 		userId?: string,
 		requestId?: string
 	): void {
@@ -97,7 +107,7 @@ class Logger {
 	}
 
 	// Convenience methods for common operations
-	userAction(action: string, userId: string, metadata?: Record<string, any>): void {
+	userAction(action: string, userId: string, metadata?: Record<string, unknown>): void {
 		this.info(`User action: ${action}`, metadata, userId);
 	}
 
@@ -122,11 +132,11 @@ class Logger {
 		this.debug('Database query executed', metadata, userId);
 	}
 
-	paymentEvent(event: string, userId?: string, metadata?: Record<string, any>): void {
+	paymentEvent(event: string, userId?: string, metadata?: Record<string, unknown>): void {
 		this.info(`Payment event: ${event}`, metadata, userId);
 	}
 
-	securityEvent(event: string, userId?: string, metadata?: Record<string, any>): void {
+	securityEvent(event: string, userId?: string, metadata?: Record<string, unknown>): void {
 		this.warn(`Security event: ${event}`, metadata, userId);
 	}
 }
@@ -137,13 +147,13 @@ export const logger = new Logger();
 // Helper function to create request-specific logger
 export function createRequestLogger(requestId: string, userId?: string) {
 	return {
-		debug: (message: string, metadata?: Record<string, any>) =>
+		debug: (message: string, metadata?: Record<string, unknown>) =>
 			logger.debug(message, metadata, userId, requestId),
-		info: (message: string, metadata?: Record<string, any>) =>
+		info: (message: string, metadata?: Record<string, unknown>) =>
 			logger.info(message, metadata, userId, requestId),
-		warn: (message: string, metadata?: Record<string, any>) =>
+		warn: (message: string, metadata?: Record<string, unknown>) =>
 			logger.warn(message, metadata, userId, requestId),
-		error: (message: string, metadata?: Record<string, any>) =>
+		error: (message: string, metadata?: Record<string, unknown>) =>
 			logger.error(message, metadata, userId, requestId)
 	};
 }

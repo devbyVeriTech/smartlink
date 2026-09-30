@@ -1,14 +1,7 @@
 <script lang="ts">
 	import Button from '$lib/components/ui/button/button.svelte';
 	import { HugeiconsIcon } from '@hugeicons/svelte';
-	import type { Link } from '$lib/types/social';
-	import {
-		ExternalLink,
-		PlayIcon,
-		MusicNote01Icon
-	} from '@hugeicons/core-free-icons';
-	import { Badge } from '$lib/components/ui/badge';
-	import { Separator } from '$lib/components/ui/separator';
+	import { MusicNote01Icon } from '@hugeicons/core-free-icons';
 	import AlbumView from '$lib/components/AlbumView.svelte';
 	import { page } from '$app/state';
 	import { app } from '$lib/utils/app.js';
@@ -74,7 +67,24 @@
 			platforms.push(...link.additionalPlatforms);
 		}
 
-		if (platforms.length === 0 && link.url && !link.isPreRelease) {
+		const hasExpired =
+			Boolean(link.isPreRelease) &&
+			Boolean(link.expiresAt) &&
+			new Date(link.expiresAt!).getTime() <= Date.now();
+
+		// Never surface the link's own landing URL as a platform (self-loop guard)
+		let isSelfUrl = false;
+		try {
+			const linkUrl = new URL(link.url, page.url.origin);
+			const landing = new URL(app.linksUrl);
+			isSelfUrl =
+				linkUrl.hostname.replace(/^www\./, '') === landing.hostname.replace(/^www\./, '') &&
+				linkUrl.pathname.replace(/\/+$/, '') === `/${link.slug}`;
+		} catch {
+			isSelfUrl = false;
+		}
+
+		if (platforms.length === 0 && link.url && (!link.isPreRelease || hasExpired) && !isSelfUrl) {
 			if (link.url.includes('spotify')) platforms.push({ name: 'Spotify', url: link.url });
 			else if (link.url.includes('apple')) platforms.push({ name: 'Apple Music', url: link.url });
 			else if (link.url.includes('youtube'))
@@ -131,13 +141,12 @@
 		{link}
 		{relatedAlbums}
 		availablePlatforms={getAvailablePlatforms()}
-		{clickedPlatforms}
 		{handlePlatformClick}
 	/>
 
 	<!-- Share button - sticks to bottom-right on smaller screens -->
 	<div
-		class="right-5 bottom-5 lg:hidden fixed z-50 flex h-[60px] w-[60px] cursor-pointer items-center justify-center rounded-[16px] border-4 border-[#f8fafc] bg-[#2dd4bf] shadow-[0_10px_25px_rgba(45,212,191,0.4)] transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:scale-105 active:scale-95 dark:border-[var(--card)] dark:bg-[var(--accent)] dark:shadow-[0_10px_25px_var(--accent)]/40"
+		class="fixed right-5 bottom-5 z-50 flex h-[60px] w-[60px] cursor-pointer items-center justify-center rounded-[16px] border-4 border-[#f8fafc] bg-[#2dd4bf] shadow-[0_10px_25px_rgba(45,212,191,0.4)] transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] hover:scale-105 active:scale-95 lg:hidden dark:border-[var(--card)] dark:bg-[var(--accent)] dark:shadow-[0_10px_25px_var(--accent)]/40"
 		role="button"
 		tabindex="0"
 		aria-label="Share this link"
@@ -163,14 +172,14 @@
 {:else}
 	<div class="flex min-h-screen items-center justify-center bg-[#F8F9FA] dark:bg-[var(--bg)]">
 		<div
-			class="bg-white p-8 rounded-[18px] text-center dark:bg-[var(--card)]"
+			class="rounded-[18px] bg-white p-8 text-center dark:bg-[var(--card)]"
 			style="box-shadow: 0px 10px 30px 0px #0b12201a;"
 		>
 			<HugeiconsIcon
 				icon={MusicNote01Icon}
 				className="text-[#94a3b8] dark:text-[var(--text-secondary)] mx-auto mb-4 size-12"
 			/>
-			<h1 class="mb-2 font-bold text-[24px] text-[#0f172a] dark:text-[var(--text)]">
+			<h1 class="mb-2 text-[24px] font-bold text-[#0f172a] dark:text-[var(--text)]">
 				Link Not Found
 			</h1>
 			<p class="mb-6 text-[#94a3b8] dark:text-[var(--text-secondary)]">
@@ -178,7 +187,7 @@
 			</p>
 			<Button
 				href="/"
-				class="px-4 py-2 rounded-[10px] bg-[#2dd4bf] text-[#0f172a] hover:bg-[#2dd4bf]/90 dark:bg-[var(--accent)] dark:text-[var(--text)] dark:hover:bg-[var(--accent)]/90"
+				class="rounded-[10px] bg-[#2dd4bf] px-4 py-2 text-[#0f172a] hover:bg-[#2dd4bf]/90 dark:bg-[var(--accent)] dark:text-[var(--text)] dark:hover:bg-[var(--accent)]/90"
 				>Go Home</Button
 			>
 		</div>

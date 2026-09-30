@@ -14,9 +14,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
 		const origin = new URL(request.url).origin;
 
-		const callbackUrl = slug
-			? `${origin}/${slug}`
-			: undefined;
+		const callbackUrl = slug ? `${origin}/${slug}` : undefined;
 
 		const res = await fetch(`${app.mainUrl}/api/links/buy`, {
 			method: 'POST',

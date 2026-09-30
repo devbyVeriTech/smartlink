@@ -14,11 +14,11 @@ It shares the same Neon PostgreSQL database as the main app (`links`, `analytics
 
 ## Env
 
-| Variable             | Purpose                                        | Example                  |
-| -------------------- | ---------------------------------------------- | ------------------------ |
-| `DATABASE_URL`       | Neon Postgres connection (shared with main)    | `postgres://...`         |
-| `PUBLIC_LINKS_URL`   | This app's public URL                          | `https://play.xoniq.pro` |
-| `PUBLIC_MAIN_URL`    | Main app URL (profile links, logo)             | `https://www.xoniq.pro`  |
+| Variable           | Purpose                                     | Example                  |
+| ------------------ | ------------------------------------------- | ------------------------ |
+| `DATABASE_URL`     | Neon Postgres connection (shared with main) | `postgres://...`         |
+| `PUBLIC_LINKS_URL` | This app's public URL                       | `https://play.xoniq.pro` |
+| `PUBLIC_MAIN_URL`  | Main app URL (profile links, logo)          | `https://www.xoniq.pro`  |
 
 ## Dev
 

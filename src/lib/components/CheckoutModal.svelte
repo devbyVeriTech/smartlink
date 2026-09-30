@@ -9,22 +9,15 @@
 		Close as DialogClose
 	} from '$lib/components/ui/dialog/index.js';
 	import { HugeiconsIcon } from '@hugeicons/svelte';
-	import {
-		MusicNote01Icon,
-		LockKeyIcon,
-		CreditCardIcon
-	} from '@hugeicons/core-free-icons';
+	import { MusicNote01Icon, LockKeyIcon, CreditCardIcon } from '@hugeicons/core-free-icons';
 	import type { Link } from '$lib/types/social';
-	import { env } from '$env/dynamic/public';
 
 	let {
 		open = $bindable(false),
-		link,
-		onSuccess
+		link
 	}: {
 		open?: boolean;
 		link: Link;
-		onSuccess?: () => void;
 	} = $props();
 
 	let buyerName = $state('');
@@ -120,20 +113,16 @@
 				class="flex items-center gap-4 rounded-xl border border-[#e2e8f0] bg-white p-4 dark:border-[var(--border)] dark:bg-[var(--card)]"
 			>
 				<div
-					class="size-16 shrink-0 overflow-hidden rounded-[10px] bg-gray-100 dark:bg-gray-800 grid place-items-center"
+					class="grid size-16 shrink-0 place-items-center overflow-hidden rounded-[10px] bg-gray-100 dark:bg-gray-800"
 				>
 					{#if link.artwork}
-						<img
-							src={link.artwork}
-							alt={link.title}
-							class="h-full w-full object-cover"
-						/>
+						<img src={link.artwork} alt={link.title} class="h-full w-full object-cover" />
 					{:else}
 						<HugeiconsIcon icon={MusicNote01Icon} className="size-6 text-gray-400" />
 					{/if}
 				</div>
 				<div class="min-w-0 flex-1">
-					<p class="text-sm font-semibold truncate text-[#0f172a] dark:text-[var(--text)]">
+					<p class="truncate text-sm font-semibold text-[#0f172a] dark:text-[var(--text)]">
 						{link.title}
 					</p>
 					<p class="text-xs text-[#94a3b8]">
@@ -146,7 +135,7 @@
 			</div>
 
 			<div class="space-y-3">
-				<div class="gap-2 flex items-center">
+				<div class="flex items-center gap-2">
 					<HugeiconsIcon icon={CreditCardIcon} className="size-4 text-[#94a3b8]" />
 					<span class="text-[13px] font-semibold text-[#0f172a] dark:text-[var(--text)]">
 						Contact Details
@@ -165,7 +154,7 @@
 						type="text"
 						bind:value={buyerName}
 						placeholder="e.g. Jane Doe"
-						class="w-full rounded-[10px] border border-[#e2e8f0] bg-white px-3 py-2.5 text-[13px] text-[#0f172a] outline-none transition focus:border-[var(--teal)] dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-[var(--text)]"
+						class="w-full rounded-[10px] border border-[#e2e8f0] bg-white px-3 py-2.5 text-[13px] text-[#0f172a] transition outline-none focus:border-[var(--teal)] dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-[var(--text)]"
 					/>
 				</div>
 
@@ -181,7 +170,7 @@
 						type="email"
 						bind:value={buyerEmail}
 						placeholder="you@example.com"
-						class="w-full rounded-[10px] border border-[#e2e8f0] bg-white px-3 py-2.5 text-[13px] text-[#0f172a] outline-none transition focus:border-[var(--teal)] dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-[var(--text)]"
+						class="w-full rounded-[10px] border border-[#e2e8f0] bg-white px-3 py-2.5 text-[13px] text-[#0f172a] transition outline-none focus:border-[var(--teal)] dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-[var(--text)]"
 					/>
 				</div>
 
@@ -197,7 +186,7 @@
 						type="tel"
 						bind:value={buyerPhone}
 						placeholder="+234 ..."
-						class="w-full rounded-[10px] border border-[#e2e8f0] bg-white px-3 py-2.5 text-[13px] text-[#0f172a] outline-none transition focus:border-[var(--teal)] dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-[var(--text)]"
+						class="w-full rounded-[10px] border border-[#e2e8f0] bg-white px-3 py-2.5 text-[13px] text-[#0f172a] transition outline-none focus:border-[var(--teal)] dark:border-[var(--border)] dark:bg-[var(--card)] dark:text-[var(--text)]"
 					/>
 				</div>
 			</div>
@@ -211,7 +200,7 @@
 			{/if}
 
 			<div
-				class="gap-1.5 flex items-center justify-center rounded-[10px] bg-[var(--teal)]/5 px-3 py-2 text-center text-[11px] text-[#64748b] dark:bg-[var(--accent)]/10 dark:text-[#94a3b8]"
+				class="flex items-center justify-center gap-1.5 rounded-[10px] bg-[var(--teal)]/5 px-3 py-2 text-center text-[11px] text-[#64748b] dark:bg-[var(--accent)]/10 dark:text-[#94a3b8]"
 			>
 				<HugeiconsIcon icon={LockKeyIcon} className="size-3 shrink-0" />
 				Once payment confirms, we'll email you a unique passcode to unlock this track.
@@ -224,7 +213,7 @@
 					type="button"
 					onclick={placePreOrder}
 					disabled={loading}
-					class="gap-2 px-4 py-3 font-semibold flex w-full items-center justify-center rounded-[10px] bg-[var(--teal)] text-[#0f172a] transition-colors hover:bg-[var(--teal)]/90 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-[var(--accent)] dark:text-[var(--text)]"
+					class="flex w-full items-center justify-center gap-2 rounded-[10px] bg-[var(--teal)] px-4 py-3 font-semibold text-[#0f172a] transition-colors hover:bg-[var(--teal)]/90 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-[var(--accent)] dark:text-[var(--text)]"
 				>
 					{#if loading}
 						<span
@@ -241,7 +230,7 @@
 					Cancel
 				</DialogClose>
 			</div>
-			<p class="mt-3 gap-1.5 flex items-center justify-center text-[11px] text-[#94a3b8]">
+			<p class="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-[#94a3b8]">
 				<HugeiconsIcon icon={LockKeyIcon} className="size-3" />
 				Payments are processed securely by Paystack.
 			</p>

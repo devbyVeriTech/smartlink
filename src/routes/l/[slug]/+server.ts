@@ -24,6 +24,7 @@ function detectPlatform(userAgent: string | undefined): string | undefined {
 	return 'other';
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- placeholder: `ip` will be used once real geolocation is integrated
 async function getCountryFromIP(ip: string): Promise<string | undefined> {
 	try {
 		// In production, you'd use a proper IP geolocation service
@@ -33,7 +34,7 @@ async function getCountryFromIP(ip: string): Promise<string | undefined> {
 		// - IPGeolocation.io
 		// - ip-api.com
 		return undefined;
-	} catch (error) {
+	} catch {
 		return undefined;
 	}
 }

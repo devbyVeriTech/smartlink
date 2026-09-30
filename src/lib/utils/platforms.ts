@@ -77,7 +77,12 @@ export const KNOWN_PLATFORMS = [
 		color: colorMap['apple music']
 	},
 	{ name: 'YouTube', key: 'youtube', svg: svgMap.youtube, color: colorMap.youtube },
-	{ name: 'YouTube Music', key: 'ytmusic', svg: svgMap.youtubemusic, color: colorMap['youtube music'] },
+	{
+		name: 'YouTube Music',
+		key: 'ytmusic',
+		svg: svgMap.youtubemusic,
+		color: colorMap['youtube music']
+	},
 	{ name: 'SoundCloud', key: 'soundcloud', svg: svgMap.soundcloud, color: colorMap.soundcloud },
 	{ name: 'Deezer', key: 'deezer', svg: svgMap.deezer, color: colorMap.deezer },
 	{ name: 'Tidal', key: 'tidal', svg: svgMap.tidal, color: colorMap.tidal },

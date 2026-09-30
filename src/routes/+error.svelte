@@ -3,6 +3,7 @@
 	import { ArrowLeft, Home } from '@hugeicons/core-free-icons';
 	import { HugeiconsIcon } from '@hugeicons/svelte';
 	import { browser } from '$app/environment';
+	import { resolve } from '$app/paths';
 	import { app } from '$lib/utils/app';
 
 	// Track dark mode
@@ -58,7 +59,7 @@
 
 			<div class="error-actions">
 				<a
-					href="/"
+					href={resolve('/')}
 					aria-label="Go home"
 					title="Go home"
 					role="button"

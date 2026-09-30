@@ -1,8 +1,7 @@
 import type { RequestHandler } from './$types';
 import { linkService } from '$lib/services/links';
-import { createErrorResponse } from '$lib/server/utils/errors';
+import { createErrorResponse, getErrorStatusCode } from '$lib/server/utils/errors';
 import { generateRequestId, logRequest, logResponse } from '$lib/server/middleware/auth';
-import { logger } from '$lib/server/utils/logger';
 import { json } from '@sveltejs/kit';
 
 export const GET: RequestHandler = async (event) => {
@@ -11,7 +10,7 @@ export const GET: RequestHandler = async (event) => {
 
 	try {
 		const slug = event.params.slug;
-		
+
 		if (!slug) {
 			return json({ error: 'Slug is required' }, { status: 400 });
 		}
@@ -32,8 +31,8 @@ export const GET: RequestHandler = async (event) => {
 
 		logResponse(event, 200);
 		return json({ link });
-	} catch (error: any) {
-		logResponse(event, error?.statusCode || 500);
+	} catch (error) {
+		logResponse(event, getErrorStatusCode(error));
 		const { error: message, status } = createErrorResponse(error);
 		return json({ error: message }, { status });
 	}

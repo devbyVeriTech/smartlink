@@ -38,11 +38,7 @@ export async function removeSharedPasscode(linkId: string): Promise<void> {
 export async function incrementSharedPasscodeUsage(
 	linkId: string
 ): Promise<{ allowed: boolean; currentUses: number }> {
-	const rows = await db
-		.select()
-		.from(passcodes)
-		.where(eq(passcodes.linkId, linkId))
-		.limit(1);
+	const rows = await db.select().from(passcodes).where(eq(passcodes.linkId, linkId)).limit(1);
 
 	const row = rows[0];
 	if (!row) {

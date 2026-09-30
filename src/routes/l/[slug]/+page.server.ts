@@ -13,7 +13,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
 		}
 		await loadLink();
 		// return;
-	} catch (e) {
+	} catch {
 		throw Error;
 	}
 

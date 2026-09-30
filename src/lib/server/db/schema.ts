@@ -10,6 +10,7 @@ import {
 	index,
 	uniqueIndex
 } from 'drizzle-orm/pg-core';
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 
 export const userTypeEnum = pgEnum('user_type', [
 	'admin',
@@ -167,6 +168,7 @@ export const links = pgTable(
 		sortOrder: integer('sort_order').default(0),
 		isArchived: boolean('is_archived').default(false),
 		showPlatforms: boolean('show_platforms').default(false),
+		platformsResolvedAt: timestamp('platforms_resolved_at'),
 		createdAt: timestamp('created_at').defaultNow(),
 		updatedAt: timestamp('updated_at').defaultNow()
 	},
@@ -276,7 +278,7 @@ export const comments = pgTable('comments', {
 		.references(() => users.id),
 	targetId: text('target_id').notNull(),
 	targetType: text('target_type').notNull(), // 'link', 'activity'
-	parentId: text('parent_id').references((): any => comments.id), // For threaded comments
+	parentId: text('parent_id').references((): AnyPgColumn => comments.id), // For threaded comments
 	content: text('content').notNull(),
 	isEdited: boolean('is_edited').default(false),
 	likesCount: integer('likes_count').default(0),
@@ -349,12 +351,12 @@ export const blogPosts = pgTable('blog_posts', {
 	updatedAt: timestamp('updated_at').defaultNow()
 });
 
-export const blogCategories: any = pgTable('blog_categories', {
+export const blogCategories = pgTable('blog_categories', {
 	id: text('id').primaryKey(),
 	name: text('name').notNull(),
 	slug: text('slug').notNull().unique(),
 	description: text('description'),
-	parentId: text('parent_id').references((): any => blogCategories.id),
+	parentId: text('parent_id').references((): AnyPgColumn => blogCategories.id),
 	postCount: integer('post_count').default(0),
 	isActive: boolean('is_active').default(true),
 	sortOrder: integer('sort_order').default(0),

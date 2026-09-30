@@ -3,6 +3,7 @@ import { links, preReleaseAccessLog } from '$lib/server/db/schema';
 import { eq, and, count } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createHash } from 'node:crypto';
+import type { RequestEvent } from '@sveltejs/kit';
 
 const VISITOR_COOKIE = 'xoniq_vid';
 const VISITOR_COOKIE_MAX_AGE = 60 * 60 * 24 * 365; // 1 year
@@ -12,7 +13,7 @@ function sha256(input: string): string {
 }
 
 /** Reads (or creates) the visitor id cookie and derives a per-visitor fingerprint key. */
-export function getVisitorKey(event: any): string {
+export function getVisitorKey(event: RequestEvent): string {
 	let id = event.cookies?.get(VISITOR_COOKIE) || '';
 	if (!id) {
 		id = crypto.randomUUID();

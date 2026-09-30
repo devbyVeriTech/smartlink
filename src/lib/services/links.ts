@@ -25,9 +25,7 @@ export class LinkService {
 			const result = await db
 				.select()
 				.from(links)
-				.where(
-					and(eq(links.slug, slug), eq(links.isPublic, true), eq(links.isArchived, false))
-				)
+				.where(and(eq(links.slug, slug), eq(links.isPublic, true), eq(links.isArchived, false)))
 				.limit(1);
 
 			return result.length > 0 ? this.mapDbToLink(result[0]) : null;
@@ -37,37 +35,40 @@ export class LinkService {
 		}
 	}
 
-	private mapDbToLink(dbLink: any): Link {
+	private mapDbToLink(dbLink: typeof links.$inferSelect): Link {
 		return {
 			id: dbLink.id,
 			userId: dbLink.userId,
-			artistId: dbLink.artistId,
+			artistId: dbLink.artistId ?? undefined,
 			title: dbLink.title,
 			artist: dbLink.artist,
 			slug: dbLink.slug,
 			description: dbLink.description || undefined,
-			artwork: dbLink.artwork || undefined,
+			artwork: dbLink.artwork || '',
 			thumbnail: dbLink.thumbnail || undefined,
 			genre: dbLink.genre || undefined,
 			tags: dbLink.tags ? JSON.parse(dbLink.tags) : [],
 			url: dbLink.url,
 			customUrl: dbLink.customUrl || undefined,
-			isPublic: dbLink.isPublic,
-			isFeatured: dbLink.isFeatured,
-			notifyFollowers: dbLink.notifyFollowers || false,
+			isPublic: dbLink.isPublic ?? true,
+			isFeatured: dbLink.isFeatured ?? false,
+			notifyFollowers: false, // no notify_followers column in schema — matches previous undefined || false
 			clicks: dbLink.clicks || 0,
 			uniqueClicks: dbLink.uniqueClicks || 0,
 			spotify: dbLink.spotify || undefined,
 			appleMusic: dbLink.appleMusic || undefined,
 			youtube: dbLink.youtube || undefined,
 			soundcloud: dbLink.soundcloud || undefined,
-			platforms: dbLink.platforms || undefined,
-			additionalPlatforms: dbLink.additionalPlatforms || [],
-			albumType: dbLink.albumType || undefined,
-			createdAt: dbLink.createdAt,
-			updatedAt: dbLink.updatedAt,
+			platforms:
+				(dbLink.platforms as { id: string; name: string; url: string }[] | null) || undefined,
+			additionalPlatforms:
+				(dbLink.additionalPlatforms as { name: string; url: string }[] | null) || [],
+			albumType: (dbLink.albumType as 'single' | 'album' | 'ep' | null) || undefined,
+			createdAt: dbLink.createdAt ?? new Date(0),
+			updatedAt: dbLink.updatedAt ?? new Date(0),
 			upc: dbLink.upc || null,
 			isrc: dbLink.isrc || null,
+			platformsResolvedAt: dbLink.platformsResolvedAt || null,
 			isPreRelease: dbLink.isPreRelease ?? false,
 			requiresPassword: dbLink.requiresPassword ?? false,
 			requiresEmailCapture: dbLink.requiresEmailCapture ?? false,
@@ -80,12 +81,12 @@ export class LinkService {
 			accessCount: dbLink.accessCount ?? 0,
 			buyPrice: dbLink.buyPrice ?? undefined,
 			buyCurrency: dbLink.buyCurrency ?? 'NGN',
-		buyEnabled: dbLink.buyEnabled ?? false,
-		passcodeUsageLimit: dbLink.passcodeUsageLimit ?? undefined,
-		sortOrder: dbLink.sortOrder ?? 0,
-		isArchived: dbLink.isArchived ?? false,
-		showPlatforms: dbLink.showPlatforms ?? false
-	};
+			buyEnabled: dbLink.buyEnabled ?? false,
+			passcodeUsageLimit: dbLink.passcodeUsageLimit ?? undefined,
+			sortOrder: dbLink.sortOrder ?? 0,
+			isArchived: dbLink.isArchived ?? false,
+			showPlatforms: dbLink.showPlatforms ?? false
+		};
 	}
 
 	async capturePreReleaseEmail(linkId: string, email: string, name?: string): Promise<void> {

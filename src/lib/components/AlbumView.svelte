@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { HugeiconsIcon } from '@hugeicons/svelte';
 	import { onMount } from 'svelte';
+	import { resolve } from '$app/paths';
 	import { Badge } from '$lib/components/ui/badge';
 	import {
 		ExternalLink,
 		PlayIcon,
-		MusicNote01Icon,
 		Download01Icon,
 		ShoppingBag01Icon,
 		Clock02Icon,
@@ -15,6 +15,7 @@
 	import { PauseIcon } from '@hugeicons/core-free-icons';
 	import { toast } from 'svelte-sonner';
 	import { getMainArtist } from '$lib/utils/string';
+	import type { Link } from '$lib/types/social';
 	import { app } from '$lib/utils/app';
 	import { getPlatformSvg, getPlatformColor } from '$lib/utils/platforms';
 	import PreReleaseUnlockDialog from '$lib/components/PreReleaseUnlockDialog.svelte';
@@ -25,10 +26,10 @@
 		link,
 		relatedAlbums = [],
 		availablePlatforms,
-		clickedPlatforms = new Set(),
 		handlePlatformClick = defaultHandlePlatformClick
 	} = $props();
 
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars -- `name` is part of the handlePlatformClick(url, name) contract used by onPlatformClick
 	function defaultHandlePlatformClick(url: string, name: string) {
 		window.open(url, '_blank', 'noopener,noreferrer');
 	}
@@ -92,15 +93,30 @@
 	);
 	let downloadLoading = $state(false);
 	let countdown = $state<{ d: number; h: number; m: number; s: number } | null>(null);
+	let hasExpired = $state(false);
 
 	let mainArtist = $derived(getMainArtist(artist));
 	let filteredRelatedAlbums = $derived(
 		relatedAlbums.filter(
-			(album: any) =>
+			(album: Link) =>
 				getMainArtist(album.artist).toLowerCase() === mainArtist.toLowerCase() &&
 				!album.isPreRelease
 		)
 	);
+
+	/** Mirrors `err?.message || fallback` for unknown thrown values. */
+	function errorMessageOf(err: unknown, fallback: string): string {
+		if (
+			typeof err === 'object' &&
+			err !== null &&
+			'message' in err &&
+			typeof err.message === 'string' &&
+			err.message
+		) {
+			return err.message;
+		}
+		return fallback;
+	}
 
 	async function navigateToArtist(artistName: string) {
 		navigatingArtist = artistName;
@@ -141,12 +157,14 @@
 				album: albumTitle,
 				artwork
 			});
-		} catch {}
+		} catch {
+			/* mediaSession/audio call may be unsupported — safe to ignore */
+		}
 	}
 
 	function updatePositionState() {
 		if (!supportsMediaSession() || !audio) return;
-		const ms = navigator.mediaSession as any;
+		const ms = navigator.mediaSession;
 		if (typeof ms.setPositionState !== 'function') return;
 		const duration = audio.duration;
 		if (!Number.isFinite(duration) || duration <= 0) return;
@@ -160,7 +178,9 @@
 				playbackRate: audio.playbackRate || 1,
 				position: Math.min(Math.max(0, audio.currentTime), duration)
 			});
-		} catch {}
+		} catch {
+			/* mediaSession/audio call may be unsupported — safe to ignore */
+		}
 	}
 
 	function setMediaActionHandlers() {
@@ -169,7 +189,9 @@
 			navigator.mediaSession.setActionHandler('play', async () => {
 				try {
 					await audio?.play();
-				} catch {}
+				} catch {
+					/* mediaSession/audio call may be unsupported — safe to ignore */
+				}
 			});
 			navigator.mediaSession.setActionHandler('pause', () => {
 				audio?.pause();
@@ -181,31 +203,43 @@
 					isPlaying = false;
 				}
 				try {
-					(navigator.mediaSession as any).playbackState = 'none';
-				} catch {}
+					navigator.mediaSession.playbackState = 'none';
+				} catch {
+					/* mediaSession/audio call may be unsupported — safe to ignore */
+				}
 			});
-			navigator.mediaSession.setActionHandler('seekbackward', (details: any) => {
-				if (!audio) return;
-				const offset = details?.seekOffset ?? 10;
-				audio.currentTime = Math.max(0, audio.currentTime - offset);
-				updatePositionState();
-			});
-			navigator.mediaSession.setActionHandler('seekforward', (details: any) => {
-				if (!audio || !Number.isFinite(audio.duration)) return;
-				const offset = details?.seekOffset ?? 10;
-				audio.currentTime = Math.min(audio.duration, audio.currentTime + offset);
-				updatePositionState();
-			});
-			navigator.mediaSession.setActionHandler('seekto', (details: any) => {
+			navigator.mediaSession.setActionHandler(
+				'seekbackward',
+				(details: MediaSessionActionDetails) => {
+					if (!audio) return;
+					const offset = details?.seekOffset ?? 10;
+					audio.currentTime = Math.max(0, audio.currentTime - offset);
+					updatePositionState();
+				}
+			);
+			navigator.mediaSession.setActionHandler(
+				'seekforward',
+				(details: MediaSessionActionDetails) => {
+					if (!audio || !Number.isFinite(audio.duration)) return;
+					const offset = details?.seekOffset ?? 10;
+					audio.currentTime = Math.min(audio.duration, audio.currentTime + offset);
+					updatePositionState();
+				}
+			);
+			navigator.mediaSession.setActionHandler('seekto', (details: MediaSessionActionDetails) => {
 				if (!audio || !Number.isFinite(audio.duration)) return;
 				if (details?.fastSeek && 'fastSeek' in audio) {
-					(audio as any).fastSeek(details.seekTime);
+					(audio as HTMLMediaElement & { fastSeek(time: number): void }).fastSeek(
+						details.seekTime ?? 0
+					);
 					return;
 				}
 				audio.currentTime = Math.min(Math.max(0, details.seekTime ?? 0), audio.duration);
 				updatePositionState();
 			});
-		} catch {}
+		} catch {
+			/* mediaSession/audio call may be unsupported — safe to ignore */
+		}
 	}
 
 	function clearMediaSessionHandlers() {
@@ -220,7 +254,9 @@
 		] as const) {
 			try {
 				navigator.mediaSession.setActionHandler(action, null);
-			} catch {}
+			} catch {
+				/* mediaSession/audio call may be unsupported — safe to ignore */
+			}
 		}
 	}
 
@@ -228,10 +264,14 @@
 		if (!supportsMediaSession()) return;
 		try {
 			navigator.mediaSession.metadata = null;
-		} catch {}
+		} catch {
+			/* mediaSession/audio call may be unsupported — safe to ignore */
+		}
 		try {
-			(navigator.mediaSession as any).playbackState = 'none';
-		} catch {}
+			navigator.mediaSession.playbackState = 'none';
+		} catch {
+			/* mediaSession/audio call may be unsupported — safe to ignore */
+		}
 		clearMediaSessionHandlers();
 	}
 
@@ -364,8 +404,8 @@
 			unlockPasscode = '';
 			await loadPreReleaseStream();
 			await togglePlayback();
-		} catch (err: any) {
-			unlockError = err?.message || 'Unable to unlock pre-release track';
+		} catch (err) {
+			unlockError = errorMessageOf(err, 'Unable to unlock pre-release track');
 		} finally {
 			isUnlocking = false;
 		}
@@ -378,8 +418,10 @@
 			isPlaying = false;
 			if (supportsMediaSession()) {
 				try {
-					(navigator.mediaSession as any).playbackState = 'paused';
-				} catch {}
+					navigator.mediaSession.playbackState = 'paused';
+				} catch {
+					/* mediaSession/audio call may be unsupported — safe to ignore */
+				}
 			}
 			return;
 		}
@@ -391,8 +433,10 @@
 			isPlaying = true;
 			if (supportsMediaSession()) {
 				try {
-					(navigator.mediaSession as any).playbackState = 'playing';
-				} catch {}
+					navigator.mediaSession.playbackState = 'playing';
+				} catch {
+					/* mediaSession/audio call may be unsupported — safe to ignore */
+				}
 				updatePositionState();
 			}
 			return;
@@ -444,25 +488,31 @@
 				isPlaying = true;
 				if (supportsMediaSession()) {
 					try {
-						(navigator.mediaSession as any).playbackState = 'playing';
-					} catch {}
+						navigator.mediaSession.playbackState = 'playing';
+					} catch {
+						/* mediaSession/audio call may be unsupported — safe to ignore */
+					}
 				}
 			});
 			audio.addEventListener('pause', () => {
 				isPlaying = false;
 				if (supportsMediaSession()) {
 					try {
-						(navigator.mediaSession as any).playbackState = 'paused';
-					} catch {}
+						navigator.mediaSession.playbackState = 'paused';
+					} catch {
+						/* mediaSession/audio call may be unsupported — safe to ignore */
+					}
 				}
 			});
 			audio.addEventListener('ended', () => {
 				isPlaying = false;
 				if (supportsMediaSession()) {
 					try {
-						(navigator.mediaSession as any).playbackState = 'none';
-					} catch {}
-					const ms = navigator.mediaSession as any;
+						navigator.mediaSession.playbackState = 'none';
+					} catch {
+						/* mediaSession/audio call may be unsupported — safe to ignore */
+					}
+					const ms = navigator.mediaSession;
 					if (
 						typeof ms.setPositionState === 'function' &&
 						audio &&
@@ -470,7 +520,9 @@
 					) {
 						try {
 							ms.setPositionState({ duration: audio.duration, playbackRate: 1, position: 0 });
-						} catch {}
+						} catch {
+							/* mediaSession/audio call may be unsupported — safe to ignore */
+						}
 					}
 				}
 			});
@@ -488,8 +540,10 @@
 			isPlaying = true;
 			if (supportsMediaSession()) {
 				try {
-					(navigator.mediaSession as any).playbackState = 'playing';
-				} catch {}
+					navigator.mediaSession.playbackState = 'playing';
+				} catch {
+					/* mediaSession/audio call may be unsupported — safe to ignore */
+				}
 				updatePositionState();
 			}
 		} catch (err) {
@@ -503,6 +557,7 @@
 
 	// Reset audio when navigating to a different song (SvelteKit reuses the component)
 	$effect(() => {
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars -- reactive dependency: cleanup must re-run when the slug changes (component is reused across navigations)
 		const _currentSlug = link.slug;
 
 		return () => {
@@ -532,18 +587,21 @@
 		};
 	});
 
-	// Live countdown to expiry for pre-releases
+	// Live countdown to expiry for pre-releases; flips the page into release mode
 	$effect(() => {
 		if (!link.isPreRelease || !link.expiresAt) {
 			countdown = null;
+			hasExpired = false;
 			return;
 		}
 		const compute = () => {
 			const diff = new Date(link.expiresAt).getTime() - Date.now();
 			if (diff <= 0) {
 				countdown = null;
+				hasExpired = true;
 				return;
 			}
+			hasExpired = false;
 			countdown = {
 				d: Math.floor(diff / 86400000),
 				h: Math.floor(diff / 3600000) % 24,
@@ -611,8 +669,8 @@
 			presavedPlatforms = [...presavedPlatforms, presavePlatform];
 			presaveDone = true;
 			toast.success(`You'll be notified when ${presavePlatform} pre-save is live!`);
-		} catch (e: any) {
-			toast.error(e.message || 'Something went wrong');
+		} catch (e) {
+			toast.error(errorMessageOf(e, 'Something went wrong'));
 		} finally {
 			presaveSubmitting = false;
 		}
@@ -644,8 +702,8 @@
 			a.click();
 			a.remove();
 			URL.revokeObjectURL(url);
-		} catch (err: any) {
-			toast.error(err?.message || 'Unable to download track');
+		} catch (err) {
+			toast.error(errorMessageOf(err, 'Unable to download track'));
 		} finally {
 			downloadLoading = false;
 		}
@@ -750,7 +808,7 @@
 						>
 							{albumType}
 						</Badge>
-						{#if link.isPreRelease}
+						{#if link.isPreRelease && !hasExpired}
 							<Badge
 								class="hidden w-fit border-[var(--teal)]/20 bg-[var(--teal)]/10 text-[10px] font-bold tracking-wider text-(--teal) uppercase md:inline-flex dark:border-[var(--accent)]/25 dark:bg-[var(--accent)]/10 dark:text-(--accent)"
 							>
@@ -761,7 +819,7 @@
 					<div
 						class="text-xl font-semibold text-(--teal) drop-shadow-sm transition-colors duration-500 dark:text-(--accent) dark:drop-shadow-md"
 					>
-						{#each artist.split(',') as artistName, index}
+						{#each artist.split(',') as artistName, index (`${index}-${artistName}`)}
 							<button
 								onclick={() => navigateToArtist(artistName.trim())}
 								disabled={navigatingArtist === artistName.trim()}
@@ -808,14 +866,14 @@
 			</section>
 
 			<section class="flex w-full max-w-lg min-w-0 flex-1 flex-col md:flex-grow">
-				{#if !link.isPreRelease && availablePlatforms.length > 0}
+				{#if (!link.isPreRelease || hasExpired) && availablePlatforms.length > 0}
 					<h3
 						class="mb-6 pl-2 text-lg font-bold tracking-widest text-black/80 uppercase drop-shadow-sm transition-colors duration-500 dark:text-white/90 dark:drop-shadow-md"
 					>
 						Available On
 					</h3>
 					<div class="flex flex-col gap-3">
-						{#each availablePlatforms as platform}
+						{#each availablePlatforms as platform (platform.url)}
 							<button
 								onclick={() => onPlatformClick(platform.url, platform.name)}
 								class="group relative flex w-full cursor-pointer items-center justify-between rounded-2xl border border-black/5 bg-white/40 p-3 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-black/10 hover:bg-white/60 hover:shadow-[var(--teal)]/10 hover:shadow-xl md:p-4 dark:border-white/5 dark:bg-white/5 dark:hover:border-white/20 dark:hover:bg-white/10 dark:hover:shadow-[var(--accent)]/10 dark:hover:shadow-2xl"
@@ -868,12 +926,12 @@
 					</div>
 				{/if}
 
-				{#if link.isPreRelease}
-					{#if paymentRef}
-						<div class="mt-0 mb-8">
-							<PurchaseSuccessBanner reference={paymentRef} onDismiss={() => (paymentRef = null)} />
-						</div>
-					{/if}
+				{#if link.isPreRelease && paymentRef}
+					<div class="mt-0 mb-8">
+						<PurchaseSuccessBanner reference={paymentRef} onDismiss={() => (paymentRef = null)} />
+					</div>
+				{/if}
+				{#if link.isPreRelease && !hasExpired}
 					<div
 						class="mt-0 rounded-[22px] border border-[var(--teal)]/20 bg-[var(--teal)]/10 p-5 backdrop-blur-xl md:p-6 dark:border-[var(--accent)]/25 dark:bg-[var(--accent)]/10"
 					>
@@ -970,12 +1028,14 @@
 						</div>
 
 						{#if link.showPlatforms && availablePlatforms.length > 0}
-							<div class="mt-5 border-t border-[var(--teal)]/10 pt-5 dark:border-[var(--accent)]/10">
+							<div
+								class="mt-5 border-t border-[var(--teal)]/10 pt-5 dark:border-[var(--accent)]/10"
+							>
 								<p class="mb-3 text-xs font-medium text-black/50 dark:text-white/50">
 									Pre-save to get notified when this track drops:
 								</p>
 								<div class="flex flex-col gap-2">
-									{#each availablePlatforms as platform}
+									{#each availablePlatforms as platform (platform.url)}
 										<div>
 											<button
 												onclick={() => openPresave(platform.name)}
@@ -994,7 +1054,9 @@
 																class="size-4 shrink-0 drop-shadow-md"
 															/>
 														{:else}
-															<span class="flex size-4 items-center justify-center text-[9px] font-bold text-white drop-shadow-md">
+															<span
+																class="flex size-4 items-center justify-center text-[9px] font-bold text-white drop-shadow-md"
+															>
 																{platform.name.slice(0, 2).toUpperCase()}
 															</span>
 														{/if}
@@ -1019,7 +1081,9 @@
 												</div>
 											</button>
 											{#if presavePlatform === platform.name && !presavedPlatforms.includes(platform.name)}
-												<div class="mt-2 overflow-hidden rounded-xl border border-black/5 bg-white/60 p-4 backdrop-blur-xl dark:border-white/10 dark:bg-white/5">
+												<div
+													class="mt-2 overflow-hidden rounded-xl border border-black/5 bg-white/60 p-4 backdrop-blur-xl dark:border-white/10 dark:bg-white/5"
+												>
 													{#if presaveDone}
 														<p class="text-sm font-medium text-green-600 dark:text-green-400">
 															You'll be notified when this track drops!
@@ -1034,8 +1098,10 @@
 																	type="email"
 																	placeholder="your@email.com"
 																	bind:value={presaveEmail}
-																	onkeydown={(e) => { if (e.key === 'Enter') submitPresave(); }}
-																	class="flex-1 rounded-lg border border-black/10 bg-white/80 px-3 py-2 text-sm text-black placeholder:text-black/30 focus:border-[var(--teal)] focus:outline-none focus:ring-1 focus:ring-[var(--teal)]/30 dark:border-white/10 dark:bg-white/10 dark:text-white dark:placeholder:text-white/30 dark:focus:border-[var(--accent)] dark:focus:ring-[var(--accent)]/30"
+																	onkeydown={(e) => {
+																		if (e.key === 'Enter') submitPresave();
+																	}}
+																	class="flex-1 rounded-lg border border-black/10 bg-white/80 px-3 py-2 text-sm text-black placeholder:text-black/30 focus:border-[var(--teal)] focus:ring-1 focus:ring-[var(--teal)]/30 focus:outline-none dark:border-white/10 dark:bg-white/10 dark:text-white dark:placeholder:text-white/30 dark:focus:border-[var(--accent)] dark:focus:ring-[var(--accent)]/30"
 																/>
 																<button
 																	onclick={submitPresave}
@@ -1044,8 +1110,20 @@
 																>
 																	{#if presaveSubmitting}
 																		<svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24">
-																			<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" />
-																			<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+																			<circle
+																				class="opacity-25"
+																				cx="12"
+																				cy="12"
+																				r="10"
+																				stroke="currentColor"
+																				stroke-width="4"
+																				fill="none"
+																			/>
+																			<path
+																				class="opacity-75"
+																				fill="currentColor"
+																				d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+																			/>
 																		</svg>
 																	{:else}
 																		Notify me
@@ -1070,7 +1148,7 @@
 					</div>
 				{/if}
 
-				{#if !link.isPreRelease && filteredRelatedAlbums.length > 0}
+				{#if (!link.isPreRelease || hasExpired) && filteredRelatedAlbums.length > 0}
 					<div class="mt-20">
 						<div class="mb-8 flex items-center justify-between pl-2">
 							<h3
@@ -1083,9 +1161,9 @@
 						<div
 							class="hide-scrollbar flex snap-x snap-mandatory gap-6 overflow-x-auto pb-8 md:grid md:grid-cols-2 lg:grid-cols-2"
 						>
-							{#each filteredRelatedAlbums as album}
+							{#each filteredRelatedAlbums as album (album.id)}
 								<a
-									href={`/${album.slug}`}
+									href={resolve('/[slug]', { slug: album.slug })}
 									class="group relative block w-[180px] flex-shrink-0 cursor-pointer snap-start md:w-full"
 								>
 									<div
