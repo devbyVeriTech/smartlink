@@ -1,5 +1,6 @@
 import type { RequestHandler } from './$types';
 import { linkService } from '$lib/services/links';
+import { signCdnAudioUrl } from '$lib/server/utils/audio-cdn';
 
 export const GET: RequestHandler = async (event) => {
 	try {
@@ -34,8 +35,10 @@ export const GET: RequestHandler = async (event) => {
 			fetchHeaders['range'] = range;
 		}
 
-		// Fetch the audio content from Cloudinary
-		const cloudinaryResponse = await fetch(link.audioFileUrl, {
+		// Fetch the audio from the CDN — the R2 bucket is private, so
+		// cdn.xoniq.pro requires a short-lived HMAC token on the URL.
+		const signedUrl = signCdnAudioUrl(link.audioFileUrl);
+		const cloudinaryResponse = await fetch(signedUrl, {
 			headers: fetchHeaders
 		});
 

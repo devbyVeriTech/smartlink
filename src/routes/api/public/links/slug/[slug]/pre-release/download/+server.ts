@@ -1,5 +1,6 @@
 import type { RequestHandler } from './$types';
 import { linkService } from '$lib/services/links';
+import { signCdnAudioUrl } from '$lib/server/utils/audio-cdn';
 
 export const GET: RequestHandler = async (event) => {
 	try {
@@ -30,8 +31,8 @@ export const GET: RequestHandler = async (event) => {
 			return new Response('Access denied: Gated pre-release track', { status: 403 });
 		}
 
-		// Fetch the audio content from Cloudinary
-		const cloudinaryResponse = await fetch(link.audioFileUrl);
+		// Fetch the audio — sign CDN URLs (private R2 bucket requires token)
+		const cloudinaryResponse = await fetch(signCdnAudioUrl(link.audioFileUrl));
 		if (!cloudinaryResponse.ok) {
 			return new Response('Failed to download audio track', {
 				status: cloudinaryResponse.status
