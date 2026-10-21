@@ -332,7 +332,8 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					artist: link.artist,
-					title: link.title
+					title: link.title,
+					slug: link.slug
 				})
 			});
 

@@ -1,56 +1,82 @@
 import { json, error } from '@sveltejs/kit';
-
-// iTunes Search API interfaces
-interface iTunesResult {
-	trackId: number;
-	trackName: string;
-	artistName: string;
-	previewUrl: string;
-	collectionName: string;
-}
-
-interface iTunesResponse {
-	resultCount: number;
-	results: iTunesResult[];
-}
+import { LinkService } from '$lib/services/links';
+import {
+	collectAppleUrls,
+	countryCandidates,
+	lookupPreview,
+	parseAppleUrl,
+	searchPreview
+} from '$lib/server/itunes';
 
 /**
- * Search iTunes for track preview URL
- * Free public API, no auth required
- */
-async function searchItunesPreview(artist: string, title: string): Promise<string | null> {
-	try {
-		const query = encodeURIComponent(`${artist} ${title}`);
-		const response = await fetch(
-			`https://itunes.apple.com/search?term=${query}&entity=song&limit=1`,
-			{ headers: { Accept: 'application/json' } }
-		);
-
-		if (!response.ok) return null;
-
-		const data = (await response.json()) as iTunesResponse;
-		if (data.resultCount > 0 && data.results[0]?.previewUrl) {
-			return data.results[0].previewUrl;
-		}
-	} catch {
-		// Silently fail, preview is optional
-	}
-	return null;
-}
-
-/**
- * Fetch track preview from iTunes Search API
- * Free public API, no authentication required
+ * Resolve the 30s iTunes preview clip for a link.
+ *
+ * Resolution order (exact before fuzzy):
+ *  1. Apple/iTunes track URLs stored on the link → lookup by track id
+ *  2. Apple/iTunes album URLs → lookup by album id across storefronts
+ *  3. The link's UPC → lookup across storefronts
+ *  4. Fuzzy search by artist+title — artist-plausible results only, so a
+ *     wrong-artist first hit can never become the preview
+ * Nothing matched → previewUrl null ("Preview not available").
  */
 export async function POST({ request }) {
 	try {
-		const { artist, title } = await request.json();
+		const { artist, title, slug } = await request.json();
 
 		if (!title) {
 			throw error(400, 'Title is required');
 		}
 
-		const previewUrl = await searchItunesPreview(artist || '', title);
+		let previewUrl: string | null = null;
+		let derivedCountry: string | undefined;
+
+		if (typeof slug === 'string' && slug) {
+			const link = await new LinkService().getLinkBySlug(slug);
+			if (link) {
+				const refs = collectAppleUrls(link)
+					.map(parseAppleUrl)
+					.filter((r): r is NonNullable<typeof r> => r !== null);
+				derivedCountry = refs.find((r) => r.country)?.country;
+
+				const seenTrackIds = new Set<string>();
+				for (const ref of refs) {
+					if (ref.kind !== 'track' || seenTrackIds.has(ref.id)) continue;
+					seenTrackIds.add(ref.id);
+					previewUrl = await lookupPreview({
+						trackId: ref.id,
+						queryArtist: artist,
+						queryTitle: title
+					});
+					if (previewUrl) break;
+				}
+
+				if (!previewUrl) {
+					for (const ref of refs) {
+						if (ref.kind !== 'album') continue;
+						previewUrl = await lookupPreview({
+							albumId: ref.id,
+							countries: countryCandidates(derivedCountry),
+							queryArtist: artist,
+							queryTitle: title
+						});
+						if (previewUrl) break;
+					}
+				}
+
+				if (!previewUrl && link.upc) {
+					previewUrl = await lookupPreview({
+						upc: link.upc,
+						countries: countryCandidates(derivedCountry),
+						queryArtist: artist,
+						queryTitle: title
+					});
+				}
+			}
+		}
+
+		if (!previewUrl) {
+			previewUrl = await searchPreview(artist || '', title, countryCandidates(derivedCountry));
+		}
 
 		return json({
 			success: true,
